@@ -12,15 +12,13 @@
   --pos-color:#6fcf8b;--neg-color:#e07070;
   --lora-color:#70c0e0;--lora-bg:#1a2e38;
   --id-color:#e8c86e;--id-bg:#2e2814;
+  --fav-color:#f0c060;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg)}
 body{color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;flex-direction:column}
 
 /* ── Header ── */
-header{
-  background:var(--surface);border-bottom:1px solid var(--border);
-  padding:8px 12px;flex-shrink:0;z-index:10;
-}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 12px;flex-shrink:0;z-index:10}
 .title-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .app-title{
   font-size:15px;font-weight:700;flex:1;
@@ -28,9 +26,21 @@ header{
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
 }
 .count-badge{font-size:12px;color:var(--text2)}
+.btn-fav-open{
+  position:relative;background:var(--surface3);border:1px solid var(--border);
+  color:var(--fav-color);width:32px;height:32px;border-radius:8px;
+  font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.btn-fav-open:active{opacity:.7}
+.fav-badge{
+  position:absolute;top:-5px;right:-5px;background:var(--accent);
+  color:#fff;font-size:9px;font-weight:700;min-width:16px;height:16px;
+  border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 3px;
+}
+.fav-badge.show{display:flex}
 
 /* Path bar */
-.path-bar{display:flex;gap:6px;align-items:center}
+.path-bar{display:flex;gap:6px;align-items:center;margin-bottom:6px}
 .path-input{
   flex:1;background:var(--surface2);border:1px solid var(--border);
   color:var(--text);border-radius:8px;padding:7px 10px;font-size:12px;
@@ -42,11 +52,30 @@ header{
   padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;
 }
 .btn-open:active{opacity:.75}
-.btn-browse{
+.btn-icon{
   background:var(--surface3);color:var(--text);border:1px solid var(--border);
-  padding:7px 12px;border-radius:8px;font-size:13px;cursor:pointer;white-space:nowrap;
+  padding:7px 11px;border-radius:8px;font-size:14px;cursor:pointer;white-space:nowrap;
 }
-.btn-browse:active{opacity:.75}
+.btn-icon:active{opacity:.75}
+
+/* Search + sort row */
+.search-row{display:flex;gap:6px;align-items:center}
+.search-input{
+  flex:1;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);border-radius:8px;padding:7px 10px 7px 32px;font-size:13px;min-width:0;
+}
+.search-input:focus{outline:none;border-color:var(--accent)}
+.search-wrap{position:relative;flex:1;min-width:0}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;color:var(--text2)}
+.search-clear{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--text2);font-size:14px;
+  cursor:pointer;display:none;padding:2px;
+}
+.sort-select{
+  background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  border-radius:8px;padding:7px 8px;font-size:12px;cursor:pointer;flex-shrink:0;
+}
 
 /* Progress bar */
 .progress-wrap{height:3px;background:var(--surface2);display:none}
@@ -55,16 +84,14 @@ header{
 
 /* ── Gallery ── */
 .gallery-wrap{flex:1;overflow-y:auto;overscroll-behavior:contain}
-.gallery{
-  padding:4px;display:grid;
-  grid-template-columns:repeat(3,1fr);gap:3px;
-}
+.gallery{padding:4px;display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
 @media(min-width:480px){.gallery{grid-template-columns:repeat(4,1fr)}}
 @media(min-width:720px){.gallery{grid-template-columns:repeat(5,1fr)}}
 
 .g-item{aspect-ratio:1;position:relative;overflow:hidden;border-radius:6px;cursor:pointer;background:var(--surface2)}
 .g-item img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .15s}
 .g-item:active img{transform:scale(.94)}
+.g-item.hidden{display:none}
 .g-badges{position:absolute;bottom:3px;right:3px;display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end}
 .g-badge{font-size:9px;font-weight:700;padding:2px 4px;border-radius:3px;background:rgba(0,0,0,.72);line-height:1.2}
 .gb-lora{color:var(--lora-color)}.gb-id{color:var(--id-color)}.gb-fmt{color:var(--text2)}
@@ -75,53 +102,87 @@ header{
 }
 .g-item:hover .g-del{display:flex}
 
-/* Empty / loading state */
-.empty-state{
-  grid-column:1/-1;text-align:center;padding:60px 24px;color:var(--text2);
-}
+/* Empty state */
+.empty-state{grid-column:1/-1;text-align:center;padding:60px 24px;color:var(--text2)}
 .empty-state svg{opacity:.25;margin-bottom:14px}
 .empty-state p{font-size:14px;line-height:1.7}
 
-/* ── Dir picker overlay ── */
-.dir-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:300;
-  display:none;flex-direction:column;
-}
+/* ── Dir picker ── */
+.dir-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:300;display:none;flex-direction:column}
 .dir-overlay.open{display:flex}
-.dir-header{
-  background:var(--surface);padding:12px 14px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:10px;flex-shrink:0;
-}
+.dir-header{background:var(--surface);padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
 .dir-title{font-size:14px;font-weight:600;flex:1}
 .dir-current{font-size:11px;color:var(--text2);font-family:monospace;padding:6px 14px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dir-list{flex:1;overflow-y:auto}
-.dir-item{
-  padding:13px 14px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:10px;cursor:pointer;
-}
+.dir-item{padding:13px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;cursor:pointer}
 .dir-item:active{background:var(--surface2)}
 .dir-icon{font-size:20px;flex-shrink:0}
 .dir-info{flex:1;min-width:0}
 .dir-name{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dir-name.hidden-dir{color:var(--accent)}
 .dir-meta{font-size:11px;color:var(--text2);margin-top:2px}
-.dir-select{
-  background:var(--accent);color:#fff;border:none;
-  padding:5px 12px;border-radius:16px;font-size:12px;cursor:pointer;flex-shrink:0;
+.dir-select{background:var(--accent);color:#fff;border:none;padding:5px 12px;border-radius:16px;font-size:12px;cursor:pointer;flex-shrink:0}
+
+/* ── Favorites overlay ── */
+.fav-overlay{position:fixed;inset:0;background:var(--bg);z-index:400;display:none;flex-direction:column}
+.fav-overlay.open{display:flex}
+.fav-header{background:var(--surface);padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.fav-title{font-size:15px;font-weight:700;flex:1;color:var(--fav-color)}
+.fav-list{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.fav-card{background:var(--surface);border-radius:12px;padding:14px;border:1px solid var(--border)}
+.fav-card-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.fav-card-name{font-size:14px;font-weight:600;flex:1;color:var(--text)}
+.fav-card-fmt{font-size:10px;padding:2px 7px;border-radius:8px;background:var(--surface2);color:var(--text2)}
+.fav-card-del{background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:2px 4px}
+.fav-card-del:active{color:var(--neg-color)}
+.fav-section{margin-bottom:8px}
+.fav-section-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.fav-section-label.pos{color:var(--pos-color)}.fav-section-label.neg{color:var(--neg-color)}
+.fav-preview{
+  background:var(--surface2);border-radius:8px;padding:9px 10px;font-size:12px;
+  line-height:1.5;color:var(--text);display:-webkit-box;-webkit-line-clamp:3;
+  -webkit-box-orient:vertical;overflow:hidden;border-left:2px solid;cursor:default;
+}
+.fav-preview.pos{border-left-color:var(--pos-color)}
+.fav-preview.neg{border-left-color:var(--neg-color)}
+.fav-preview.empty{color:var(--text2);font-style:italic}
+.fav-loras{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.fav-lora-chip{font-size:11px;background:var(--lora-bg);color:var(--lora-color);padding:2px 8px;border-radius:10px}
+.fav-actions{display:flex;gap:6px;margin-top:10px}
+.fav-copy-btn{
+  flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  padding:7px;border-radius:8px;font-size:12px;cursor:pointer;text-align:center;
+}
+.fav-copy-btn:active,.fav-copy-btn.copied{background:var(--accent);border-color:var(--accent);color:#fff}
+.fav-empty{text-align:center;padding:60px 24px;color:var(--text2);font-size:14px;line-height:1.7}
+
+/* ── Save name dialog ── */
+.save-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:flex-end}
+.save-overlay.open{display:flex}
+.save-sheet{
+  background:var(--surface);width:100%;border-radius:18px 18px 0 0;
+  padding:20px 16px 32px;
+}
+.save-title{font-size:14px;font-weight:600;margin-bottom:14px;color:var(--fav-color)}
+.save-name-input{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:12px;
+}
+.save-name-input:focus{outline:none;border-color:var(--accent)}
+.save-actions{display:flex;gap:8px}
+.btn-save-confirm{
+  flex:1;background:var(--accent);color:#fff;border:none;
+  padding:11px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;
+}
+.btn-save-cancel{
+  background:var(--surface3);color:var(--text);border:1px solid var(--border);
+  padding:11px 18px;border-radius:8px;font-size:14px;cursor:pointer;
 }
 
 /* ── Bottom sheet modal ── */
-.overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:100;
-  opacity:0;pointer-events:none;transition:opacity .2s;
-  display:flex;flex-direction:column;justify-content:flex-end;
-}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:100;opacity:0;pointer-events:none;transition:opacity .2s;display:flex;flex-direction:column;justify-content:flex-end}
 .overlay.open{opacity:1;pointer-events:all}
-.sheet{
-  background:var(--surface);border-radius:18px 18px 0 0;max-height:90vh;
-  display:flex;flex-direction:column;
-  transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1);overflow:hidden;
-}
+.sheet{background:var(--surface);border-radius:18px 18px 0 0;max-height:90vh;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1);overflow:hidden}
 .overlay.open .sheet{transform:translateY(0)}
 .sheet-handle-row{padding:10px 16px 0;flex-shrink:0}
 .sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto}
@@ -131,43 +192,30 @@ header{
 .sheet-fname{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sheet-fmt{display:inline-block;margin-top:3px;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--surface3);color:var(--text2)}
 .sheet-nav{display:flex;gap:6px}
-.btn-nav,.btn-close{
-  background:var(--surface3);border:none;color:var(--text2);
-  width:30px;height:30px;border-radius:50%;font-size:17px;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-}
+.btn-nav,.btn-close{background:var(--surface3);border:none;color:var(--text2);width:30px;height:30px;border-radius:50%;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .btn-close{color:var(--text)}
 .btn-nav:disabled{opacity:.3;pointer-events:none}
-
-/* Tabs */
-.tab-bar{
-  display:flex;padding:0 14px;border-bottom:1px solid var(--border);
-  margin-top:10px;overflow-x:auto;scrollbar-width:none;flex-shrink:0;
-}
+.tab-bar{display:flex;padding:0 14px;border-bottom:1px solid var(--border);margin-top:10px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
 .tab-bar::-webkit-scrollbar{display:none}
-.tab-btn{
-  background:none;border:none;color:var(--text2);padding:9px 14px;
-  font-size:13px;cursor:pointer;white-space:nowrap;
-  border-bottom:2px solid transparent;margin-bottom:-1px;
-}
+.tab-btn{background:none;border:none;color:var(--text2);padding:9px 14px;font-size:13px;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px}
 .tab-btn.active{color:var(--text);border-bottom-color:var(--accent)}
 .sheet-content{flex:1;overflow-y:auto;padding:14px;overscroll-behavior:contain}
 .tab-pane{display:none}.tab-pane.active{display:block}
 
 /* Prompt */
 .prompt-block{margin-bottom:14px}
-.prompt-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.prompt-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.prompt-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px}
+.prompt-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;flex-shrink:0}
 .lbl-pos{color:var(--pos-color)}.lbl-neg{color:var(--neg-color)}
-.btn-copy{
+.prompt-actions{display:flex;gap:5px;flex-shrink:0}
+.btn-copy,.btn-star{
   background:var(--surface3);border:1px solid var(--border);color:var(--text);
-  padding:4px 12px;border-radius:14px;font-size:11px;cursor:pointer;transition:background .12s;
+  padding:4px 11px;border-radius:14px;font-size:11px;cursor:pointer;transition:background .12s;white-space:nowrap;
 }
 .btn-copy:active,.btn-copy.copied{background:var(--accent);border-color:var(--accent);color:#fff}
-.prompt-text{
-  background:var(--surface2);border-radius:10px;padding:11px 12px;
-  font-size:13px;line-height:1.65;word-break:break-word;white-space:pre-wrap;border-left:3px solid;
-}
+.btn-star{color:var(--fav-color)}
+.btn-star:active{background:var(--fav-color);border-color:var(--fav-color);color:#000}
+.prompt-text{background:var(--surface2);border-radius:10px;padding:11px 12px;font-size:13px;line-height:1.65;word-break:break-word;white-space:pre-wrap;border-left:3px solid}
 .prompt-text.pos{border-left-color:var(--pos-color)}
 .prompt-text.neg{border-left-color:var(--neg-color)}
 .prompt-text.empty{color:var(--text2);font-style:italic;border-left-color:var(--border)}
@@ -175,11 +223,7 @@ header{
 
 /* LoRA */
 .lora-list{display:flex;flex-direction:column;gap:6px}
-.lora-item{
-  background:var(--surface2);border-radius:10px;padding:11px 13px;
-  display:flex;justify-content:space-between;align-items:center;
-  border-left:3px solid var(--lora-color);gap:8px;
-}
+.lora-item{background:var(--surface2);border-radius:10px;padding:11px 13px;display:flex;justify-content:space-between;align-items:center;border-left:3px solid var(--lora-color);gap:8px}
 .lora-name{font-size:13px;font-weight:500;color:var(--lora-color);word-break:break-all;flex:1}
 .lora-wt{font-size:11px;background:var(--lora-bg);padding:3px 10px;border-radius:12px;color:var(--lora-color);white-space:nowrap}
 
@@ -194,11 +238,7 @@ header{
 .sk{color:var(--text2);flex-shrink:0;min-width:90px}.sv{color:var(--text);word-break:break-all}
 
 .no-data{color:var(--text2);font-size:13px;text-align:center;padding:28px;line-height:1.6}
-.toast{
-  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(56px);
-  background:var(--accent);color:#fff;padding:8px 20px;border-radius:20px;
-  font-size:13px;z-index:999;transition:transform .2s;pointer-events:none;
-}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(56px);background:var(--accent);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;z-index:999;transition:transform .2s;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
 </style>
 </head>
@@ -208,25 +248,38 @@ header{
   <div class="title-row">
     <h1 class="app-title">SD Prompt Viewer</h1>
     <span class="count-badge" id="count-badge"></span>
+    <button class="btn-fav-open" onclick="openFavorites()" title="お気に入り">
+      ★<span class="fav-badge" id="fav-badge"></span>
+    </button>
   </div>
   <div class="path-bar">
-    <input type="text" class="path-input" id="path-input"
-           placeholder="/storage/emulated/0/Pictures">
-    <button class="btn-browse" onclick="openDirPicker()">📁</button>
+    <input type="text" class="path-input" id="path-input" placeholder="/storage/emulated/0/Pictures">
+    <button class="btn-icon" onclick="openDirPicker()">📁</button>
     <button class="btn-open" onclick="openPath()">開く</button>
+  </div>
+  <div class="search-row">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="search" class="search-input" id="search-input"
+             placeholder="プロンプト・LoRA名・モデルで検索">
+      <button class="search-clear" id="search-clear" onclick="clearSearch()">×</button>
+    </div>
+    <select class="sort-select" id="sort-select" onchange="setSort(this.value)">
+      <option value="newest">新しい順</option>
+      <option value="oldest">古い順</option>
+      <option value="name">名前順</option>
+      <option value="format">形式順</option>
+    </select>
   </div>
 </header>
 
-<div class="progress-wrap" id="progress-wrap">
-  <div class="progress-bar" id="progress-bar"></div>
-</div>
+<div class="progress-wrap" id="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
 
 <div class="gallery-wrap">
   <div class="gallery" id="gallery">
     <div class="empty-state" id="empty-state">
       <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-        <rect x="3" y="3" width="18" height="18" rx="3"/>
-        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/>
         <path d="m21 15-5-5L5 21"/>
       </svg>
       <p>フォルダパスを入力して「開く」<br>隠しフォルダも読み込めます</p>
@@ -239,13 +292,34 @@ header{
   <div class="dir-header">
     <button class="btn-close" onclick="closeDirPicker()" style="color:var(--text)">×</button>
     <span class="dir-title">フォルダを選択</span>
-    <button class="btn-browse" id="dir-up-btn" onclick="dirUp()" disabled>↑ 上へ</button>
+    <button class="btn-icon" id="dir-up-btn" onclick="dirUp()" disabled>↑ 上へ</button>
   </div>
   <div class="dir-current" id="dir-current"></div>
   <div class="dir-list" id="dir-list"></div>
 </div>
 
-<!-- Modal -->
+<!-- Favorites overlay -->
+<div class="fav-overlay" id="fav-overlay">
+  <div class="fav-header">
+    <button class="btn-close" onclick="closeFavorites()" style="color:var(--text)">×</button>
+    <span class="fav-title">★ お気に入り</span>
+  </div>
+  <div class="fav-list" id="fav-list"></div>
+</div>
+
+<!-- Save name dialog -->
+<div class="save-overlay" id="save-overlay" onclick="onSaveOverlayClick(event)">
+  <div class="save-sheet">
+    <div class="save-title">★ お気に入りに保存</div>
+    <input type="text" class="save-name-input" id="save-name-input" placeholder="セット名を入力">
+    <div class="save-actions">
+      <button class="btn-save-cancel" onclick="closeSaveDialog()">キャンセル</button>
+      <button class="btn-save-confirm" onclick="confirmSaveFavorite()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Image modal -->
 <div class="overlay" id="overlay" onclick="onOverlayClick(event)">
   <div class="sheet" id="sheet">
     <div class="sheet-handle-row"><div class="sheet-handle"></div></div>
@@ -272,7 +346,7 @@ header{
 'use strict';
 
 // ═══════════════════════════════════════════
-//  PNG binary parser
+//  PNG parser
 // ═══════════════════════════════════════════
 function parsePNGChunks(buf){
   const a=new Uint8Array(buf);
@@ -283,8 +357,7 @@ function parsePNGChunks(buf){
   const nullAt=(s,e)=>{for(let i=s;i<e;i++)if(a[i]===0)return i;return -1;};
   const chunks={};let off=8;
   while(off+12<=a.length){
-    const len=R32(off);
-    const type=L1(off+4,off+8);
+    const len=R32(off);const type=L1(off+4,off+8);
     if(type==='tEXt'&&off+8+len<=a.length){
       const end=off+8+len;const ni=nullAt(off+8,end);
       if(ni>=0){const key=L1(off+8,ni);const val=L1(ni+1,end);if(!(key in chunks))chunks[key]=val;}
@@ -303,7 +376,7 @@ function parsePNGChunks(buf){
 }
 
 // ═══════════════════════════════════════════
-//  JPEG EXIF UserComment
+//  JPEG EXIF
 // ═══════════════════════════════════════════
 function readJpegUserComment(buf){
   const a=new Uint8Array(buf);
@@ -335,10 +408,10 @@ function parseExifUC(a,to){
     const e=subOff+2+i*12;
     if(R16(e)===0x9286){
       const cnt=R32(e+4);const valOff=cnt>4?R32(e+8):e+8;
-      const charset=Array.from(a.slice(to+valOff,to+valOff+8)).map(b=>String.fromCharCode(b)).join('').replace(/\0/g,'').trim();
+      const cs=Array.from(a.slice(to+valOff,to+valOff+8)).map(b=>String.fromCharCode(b)).join('').replace(/\0/g,'').trim();
       const tb=a.slice(to+valOff+8,to+valOff+cnt);
       let txt;
-      try{txt=charset==='UNICODE'?new TextDecoder('utf-16'+(le?'le':'be')).decode(tb):new TextDecoder('utf-8').decode(tb);}
+      try{txt=cs==='UNICODE'?new TextDecoder('utf-16'+(le?'le':'be')).decode(tb):new TextDecoder('utf-8').decode(tb);}
       catch(e2){txt=Array.from(tb).map(b=>String.fromCharCode(b)).join('');}
       return txt.replace(/\0/g,'').trim()||null;
     }
@@ -440,7 +513,7 @@ function parseInvokeAI(json){
   return{format:'InvokeAI',positive:pos,negative:neg,settings,loras,instantID:[]};
 }
 function detectAndParse(chunks,jpegComment){
-  if(chunks['sui_image_params']){try{const j=JSON.parse(chunks['sui_image_params']);return{...{steps:j.steps,cfgscale:j.cfgscale},format:'SwarmUI',positive:j.prompt||'',negative:j.negativeprompt||'',settings:{},loras:extractLoras((j.prompt||'')+' '+(j.negativeprompt||'')),instantID:[]};}catch(e){}}
+  if(chunks['sui_image_params']){try{const j=JSON.parse(chunks['sui_image_params']);return{format:'SwarmUI',positive:j.prompt||'',negative:j.negativeprompt||'',settings:{},loras:extractLoras((j.prompt||'')+' '+(j.negativeprompt||'')),instantID:[]};}catch(e){}}
   if(chunks['parameters']){if(!chunks['prompt']||/Steps:|Sampler:|Seed:/.test(chunks['parameters']))return parseA1111(chunks['parameters']);}
   if(chunks['invokeai_metadata']){try{return parseInvokeAI(JSON.parse(chunks['invokeai_metadata']));}catch(e){}}
   if(chunks['Comment']){try{const j=JSON.parse(chunks['Comment']);if(j.prompt!==undefined)return parseFooocus(j);}catch(e){}}
@@ -449,25 +522,16 @@ function detectAndParse(chunks,jpegComment){
   return null;
 }
 
-// ═══════════════════════════════════════════
-//  Base64 → ArrayBuffer helper (app mode)
-// ═══════════════════════════════════════════
 function base64ToBuffer(b64){
   const bin=atob(b64);const buf=new ArrayBuffer(bin.length);
-  const v=new Uint8Array(buf);for(let i=0;i<bin.length;i++)v[i]=bin.charCodeAt(i);
-  return buf;
+  const v=new Uint8Array(buf);for(let i=0;i<bin.length;i++)v[i]=bin.charCodeAt(i);return buf;
 }
-
-// ═══════════════════════════════════════════
-//  File reading (app mode only)
-// ═══════════════════════════════════════════
 function readMetaApp(path){
   return new Promise(resolve=>{
     setTimeout(()=>{
       const b64=window.AndroidBridge.readFileBase64(path);
       if(!b64){resolve(null);return;}
-      const buffer=base64ToBuffer(b64);
-      const arr=new Uint8Array(buffer);
+      const buffer=base64ToBuffer(b64);const arr=new Uint8Array(buffer);
       let chunks={},jpegComment=null;
       if(arr[0]===137&&arr[1]===80){chunks=parsePNGChunks(buffer)||{};}
       else if(arr[0]===0xFF&&arr[1]===0xD8){jpegComment=readJpegUserComment(buffer);}
@@ -479,9 +543,12 @@ function readMetaApp(path){
 // ═══════════════════════════════════════════
 //  State
 // ═══════════════════════════════════════════
-const images=[];
+const images=[];   // {name,path,url,data,modified}
 let currentIdx=-1;
 let activeTabs=[];
+let visibleList=[];  // indices into images[], reflects current filter+sort
+let currentSort='newest';
+let currentQuery='';
 
 // ═══════════════════════════════════════════
 //  Gallery
@@ -492,62 +559,47 @@ const countBadge=document.getElementById('count-badge');
 const progressWrap=document.getElementById('progress-wrap');
 const progressBar=document.getElementById('progress-bar');
 
-function showProgress(pct){
-  progressWrap.classList.add('show');
-  progressBar.style.width=pct+'%';
-}
-function hideProgress(){
-  setTimeout(()=>{progressWrap.classList.remove('show');progressBar.style.width='0%';},400);
-}
+function showProgress(pct){progressWrap.classList.add('show');progressBar.style.width=pct+'%';}
+function hideProgress(){setTimeout(()=>{progressWrap.classList.remove('show');progressBar.style.width='0%';},400);}
 
 async function openPath(){
   const path=document.getElementById('path-input').value.trim();
-  if(!path) return;
-  if(!window.AndroidBridge.exists(path)){
-    showToast('フォルダが見つかりません');return;
-  }
-  // Save to recent
+  if(!path)return;
+  if(!window.AndroidBridge.exists(path)){showToast('フォルダが見つかりません');return;}
   saveRecent(path);
   await loadFolder(path);
 }
 
 async function loadFolder(path){
-  const json=window.AndroidBridge.listImages(path);
-  const files=JSON.parse(json);
-
-  // Clear gallery
+  const files=JSON.parse(window.AndroidBridge.listImages(path));
   images.length=0;
   gallery.querySelectorAll('.g-item').forEach(el=>el.remove());
   emptyState.style.display='none';
-
   if(!files.length){
     emptyState.style.display='';
     emptyState.querySelector('p').textContent='画像が見つかりませんでした';
     return;
   }
-
   showProgress(0);
   for(let i=0;i<files.length;i++){
     const f=files[i];
-    const url=`localfile://${f.path}`;
     const data=await readMetaApp(f.path);
-    images.push({name:f.name,path:f.path,url,data});
+    images.push({name:f.name,path:f.path,url:`localfile://${f.path}`,data,modified:f.modified||0});
     renderGalleryItem(images.length-1);
     showProgress((i+1)/files.length*100);
   }
   hideProgress();
+  rebuildVisibleList();
   updateCount();
 }
 
 function renderGalleryItem(idx){
   const item=images[idx];
   const div=document.createElement('div');
-  div.className='g-item';
+  div.className='g-item';div.dataset.idx=idx;
   const img=document.createElement('img');
-  img.src=item.url; img.loading='lazy';
-  div.appendChild(img);
-  const d=item.data;
-  const badges=[];
+  img.src=item.url;img.loading='lazy';div.appendChild(img);
+  const d=item.data;const badges=[];
   if(d){
     if(d.loras?.length)badges.push(`<span class="g-badge gb-lora">L×${d.loras.length}</span>`);
     if(d.instantID?.length)badges.push(`<span class="g-badge gb-id">ID</span>`);
@@ -556,108 +608,242 @@ function renderGalleryItem(idx){
   if(badges.length){const bd=document.createElement('div');bd.className='g-badges';bd.innerHTML=badges.join('');div.appendChild(bd);}
   const del=document.createElement('button');
   del.className='g-del';del.innerHTML='×';
-  del.onclick=ev=>{ev.stopPropagation();images.splice(idx,1);div.remove();updateCount();if(currentIdx>=0)closeModal();};
+  del.onclick=ev=>{ev.stopPropagation();removeImage(idx);};
   div.appendChild(del);
-  div.onclick=()=>openModal(idx);
+  div.onclick=()=>{
+    const vi=visibleList.indexOf(idx);if(vi<0)return;
+    currentIdx=idx;renderSheet();document.getElementById('overlay').classList.add('open');
+  };
   gallery.appendChild(div);
 }
 
+function removeImage(idx){
+  const el=gallery.querySelector(`.g-item[data-idx="${idx}"]`);
+  if(el)el.remove();
+  images.splice(idx,1);
+  // Re-index data-idx on remaining items
+  gallery.querySelectorAll('.g-item').forEach(el=>{
+    const i=+el.dataset.idx;
+    if(i>idx)el.dataset.idx=i-1;
+  });
+  visibleList=visibleList.map(i=>i>idx?i-1:i).filter(i=>i!==idx);
+  updateCount();
+  if(currentIdx>=0)closeModal();
+}
+
 function updateCount(){
-  countBadge.textContent=images.length?`${images.length}枚`:'';
+  const vis=visibleList.length;
+  const tot=images.length;
+  if(!tot){countBadge.textContent='';return;}
+  countBadge.textContent=vis<tot?`${vis}/${tot}枚`:`${tot}枚`;
 }
 
 // ═══════════════════════════════════════════
-//  Directory picker
+//  Search / Filter
+// ═══════════════════════════════════════════
+let searchTimer;
+document.getElementById('search-input').addEventListener('input',e=>{
+  currentQuery=e.target.value;
+  document.getElementById('search-clear').style.display=currentQuery?'block':'none';
+  clearTimeout(searchTimer);
+  searchTimer=setTimeout(()=>rebuildVisibleList(),200);
+});
+
+function clearSearch(){
+  document.getElementById('search-input').value='';
+  document.getElementById('search-clear').style.display='none';
+  currentQuery='';
+  rebuildVisibleList();
+}
+
+function itemMatches(item,q){
+  if(!q)return true;
+  const lq=q.toLowerCase();
+  const d=item.data;
+  if(!d)return item.name.toLowerCase().includes(lq);
+  return(
+    (d.positive||'').toLowerCase().includes(lq)||
+    (d.negative||'').toLowerCase().includes(lq)||
+    (d.loras||[]).some(l=>l.name.toLowerCase().includes(lq))||
+    (d.settings?.Model||'').toLowerCase().includes(lq)||
+    item.name.toLowerCase().includes(lq)
+  );
+}
+
+// ═══════════════════════════════════════════
+//  Sort
+// ═══════════════════════════════════════════
+function setSort(val){
+  currentSort=val;
+  rebuildVisibleList();
+}
+
+function compareItems(a,b){
+  switch(currentSort){
+    case'newest':return(b.modified||0)-(a.modified||0);
+    case'oldest':return(a.modified||0)-(b.modified||0);
+    case'name':return a.name.localeCompare(b.name,'ja');
+    case'format':return(a.data?.format||'').localeCompare(b.data?.format||'');
+  }
+  return 0;
+}
+
+function rebuildVisibleList(){
+  // Build filtered+sorted index list
+  visibleList=images
+    .map((_,i)=>i)
+    .filter(i=>itemMatches(images[i],currentQuery))
+    .sort((a,b)=>compareItems(images[a],images[b]));
+
+  // Update DOM visibility & order
+  const allItems=gallery.querySelectorAll('.g-item');
+  allItems.forEach(el=>el.classList.add('hidden'));
+  visibleList.forEach(idx=>{
+    const el=gallery.querySelector(`.g-item[data-idx="${idx}"]`);
+    if(el){el.classList.remove('hidden');gallery.appendChild(el);}
+  });
+  updateCount();
+}
+
+// ═══════════════════════════════════════════
+//  Dir picker
 // ═══════════════════════════════════════════
 let dirStack=[];
-
 function openDirPicker(){
-  const picturePath=window.AndroidBridge.getPicturesPath();
-  dirStack=[picturePath];
-  renderDirList(picturePath);
+  const p=window.AndroidBridge.getPicturesPath();dirStack=[p];renderDirList(p);
   document.getElementById('dir-overlay').classList.add('open');
 }
-function closeDirPicker(){
-  document.getElementById('dir-overlay').classList.remove('open');
-}
-function dirUp(){
-  if(dirStack.length<=1)return;
-  dirStack.pop();
-  renderDirList(dirStack[dirStack.length-1]);
-}
+function closeDirPicker(){document.getElementById('dir-overlay').classList.remove('open');}
+function dirUp(){if(dirStack.length<=1)return;dirStack.pop();renderDirList(dirStack[dirStack.length-1]);}
 function renderDirList(path){
   document.getElementById('dir-current').textContent=path;
   document.getElementById('dir-up-btn').disabled=dirStack.length<=1;
-  const json=window.AndroidBridge.listDirs(path);
-  const dirs=JSON.parse(json);
-  const list=document.getElementById('dir-list');
-  list.innerHTML='';
-
-  // "このフォルダを開く" button at top
-  const selRow=document.createElement('div');
-  selRow.className='dir-item';
-  selRow.style.background='var(--surface2)';
+  const dirs=JSON.parse(window.AndroidBridge.listDirs(path));
+  const list=document.getElementById('dir-list');list.innerHTML='';
+  const selRow=document.createElement('div');selRow.className='dir-item';selRow.style.background='var(--surface2)';
   selRow.innerHTML=`<span class="dir-icon">✓</span><div class="dir-info"><div class="dir-name" style="color:var(--accent)">このフォルダを開く</div><div class="dir-meta">${path}</div></div>`;
-  selRow.onclick=()=>selectDir(path);
-  list.appendChild(selRow);
+  selRow.onclick=()=>selectDir(path);list.appendChild(selRow);
+  if(!dirs.length){const e=document.createElement('div');e.style.cssText='padding:24px;text-align:center;color:var(--text2);font-size:13px';e.textContent='サブフォルダなし';list.appendChild(e);return;}
+  for(const d of dirs){
+    const row=document.createElement('div');row.className='dir-item';
+    const count=d.imageCount>0?`${d.imageCount}枚の画像`:'';
+    const hl=d.hidden?'<span style="font-size:10px;background:#3a2a6a;color:#b090f0;padding:1px 5px;border-radius:4px;margin-left:4px">hidden</span>':'';
+    row.innerHTML=`<span class="dir-icon">📁</span><div class="dir-info"><div class="dir-name ${d.hidden?'hidden-dir':''}">${esc(d.name)}${hl}</div>${count?`<div class="dir-meta">${count}</div>`:''}</div><button class="dir-select" onclick="event.stopPropagation();selectDir('${d.path.replace(/'/g,"\\'")}')">開く</button>`;
+    row.onclick=()=>drillDown(d.path);list.appendChild(row);
+  }
+}
+function drillDown(path){dirStack.push(path);renderDirList(path);}
+function selectDir(path){document.getElementById('path-input').value=path;closeDirPicker();loadFolder(path);}
+function saveRecent(path){try{let r=JSON.parse(localStorage.getItem('recentPaths')||'[]');r=[path,...r.filter(p=>p!==path)].slice(0,5);localStorage.setItem('recentPaths',JSON.stringify(r));}catch(e){}}
 
-  if(!dirs.length){
-    const empty=document.createElement('div');
-    empty.style.cssText='padding:24px;text-align:center;color:var(--text2);font-size:13px';
-    empty.textContent='サブフォルダなし';
-    list.appendChild(empty);
+// ═══════════════════════════════════════════
+//  Favorites
+// ═══════════════════════════════════════════
+const FAV_KEY='sdpv_favorites';
+function loadFavs(){try{return JSON.parse(localStorage.getItem(FAV_KEY)||'[]');}catch(e){return[];}}
+function saveFavs(favs){localStorage.setItem(FAV_KEY,JSON.stringify(favs));}
+
+function updateFavBadge(){
+  const n=loadFavs().length;
+  const badge=document.getElementById('fav-badge');
+  badge.textContent=n;badge.classList.toggle('show',n>0);
+}
+
+function openFavorites(){
+  renderFavoritesList();
+  document.getElementById('fav-overlay').classList.add('open');
+}
+function closeFavorites(){document.getElementById('fav-overlay').classList.remove('open');}
+
+function renderFavoritesList(){
+  const favs=loadFavs();
+  const list=document.getElementById('fav-list');list.innerHTML='';
+  if(!favs.length){
+    list.innerHTML='<div class="fav-empty">まだお気に入りがありません<br><small>画像を開いて「★ 保存」からセットを登録できます</small></div>';
     return;
   }
-  for(const d of dirs){
-    const row=document.createElement('div');
-    row.className='dir-item';
-    const count=d.imageCount>0?`${d.imageCount}枚の画像`:'';
-    const hiddenLabel=d.hidden?'<span style="font-size:10px;background:#3a2a6a;color:#b090f0;padding:1px 5px;border-radius:4px;margin-left:4px">hidden</span>':'';
-    row.innerHTML=`
-      <span class="dir-icon">📁</span>
-      <div class="dir-info">
-        <div class="dir-name ${d.hidden?'hidden-dir':''}">${esc(d.name)}${hiddenLabel}</div>
-        ${count?`<div class="dir-meta">${count}</div>`:''}
+  favs.forEach((fav,i)=>{
+    const card=document.createElement('div');card.className='fav-card';
+    const loraChips=fav.loras?.map(l=>`<span class="fav-lora-chip">${esc(l.name)} ${esc(l.weight)}</span>`).join('')||'';
+    card.innerHTML=`
+      <div class="fav-card-header">
+        <span class="fav-card-name">${esc(fav.name)}</span>
+        ${fav.format?`<span class="fav-card-fmt">${esc(fav.format)}</span>`:''}
+        <button class="fav-card-del" onclick="deleteFavorite(${i})" title="削除">×</button>
       </div>
-      <button class="dir-select" onclick="event.stopPropagation();selectDir('${d.path.replace(/'/g,"\\'")}')">開く</button>`;
-    row.onclick=()=>drillDown(d.path);
-    list.appendChild(row);
-  }
-}
-function drillDown(path){
-  dirStack.push(path);
-  renderDirList(path);
-}
-function selectDir(path){
-  document.getElementById('path-input').value=path;
-  closeDirPicker();
-  loadFolder(path);
+      <div class="fav-section">
+        <div class="fav-section-label pos">Positive</div>
+        <div class="fav-preview pos ${!fav.positive?'empty':''}">${fav.positive?esc(fav.positive):'（なし）'}</div>
+      </div>
+      <div class="fav-section">
+        <div class="fav-section-label neg">Negative</div>
+        <div class="fav-preview neg ${!fav.negative?'empty':''}">${fav.negative?esc(fav.negative):'（なし）'}</div>
+      </div>
+      ${loraChips?`<div class="fav-loras">${loraChips}</div>`:''}
+      <div class="fav-actions">
+        <button class="fav-copy-btn" onclick="favCopy(this,${i},'positive')">Positive コピー</button>
+        <button class="fav-copy-btn" onclick="favCopy(this,${i},'negative')">Negative コピー</button>
+      </div>`;
+    list.appendChild(card);
+  });
 }
 
-// Recent paths in localStorage
-function saveRecent(path){
-  try{
-    let recent=JSON.parse(localStorage.getItem('recentPaths')||'[]');
-    recent=recent.filter(p=>p!==path);
-    recent.unshift(path);
-    recent=recent.slice(0,5);
-    localStorage.setItem('recentPaths',JSON.stringify(recent));
-  }catch(e){}
+function deleteFavorite(idx){
+  const favs=loadFavs();favs.splice(idx,1);saveFavs(favs);
+  updateFavBadge();renderFavoritesList();
 }
+
+function favCopy(btn,idx,type){
+  const favs=loadFavs();
+  const text=favs[idx]?.[type]||'';
+  doCopy(btn,text,'コピーしました');
+}
+
+// ── Save dialog ──
+let pendingSaveData=null;
+
+function promptSaveFavorite(){
+  const d=images[currentIdx]?.data;if(!d)return;
+  pendingSaveData=d;
+  const name=images[currentIdx]?.name?.replace(/\.[^.]+$/,'')||'新しいセット';
+  const input=document.getElementById('save-name-input');
+  input.value=name;
+  document.getElementById('save-overlay').classList.add('open');
+  setTimeout(()=>input.focus(),100);
+}
+
+function confirmSaveFavorite(){
+  if(!pendingSaveData)return;
+  const name=document.getElementById('save-name-input').value.trim()||'名称未設定';
+  const favs=loadFavs();
+  favs.unshift({
+    id:Date.now(),name,
+    positive:pendingSaveData.positive||'',
+    negative:pendingSaveData.negative||'',
+    loras:pendingSaveData.loras||[],
+    format:pendingSaveData.format||'',
+    savedAt:Date.now()
+  });
+  saveFavs(favs);updateFavBadge();
+  closeSaveDialog();
+  showToast('★ お気に入りに保存しました');
+}
+
+function closeSaveDialog(){
+  document.getElementById('save-overlay').classList.remove('open');
+  pendingSaveData=null;
+}
+function onSaveOverlayClick(e){if(e.target===document.getElementById('save-overlay'))closeSaveDialog();}
 
 // ═══════════════════════════════════════════
 //  Modal
 // ═══════════════════════════════════════════
-function openModal(idx){
-  currentIdx=idx;
-  renderSheet();
-  document.getElementById('overlay').classList.add('open');
-}
 function closeModal(){document.getElementById('overlay').classList.remove('open');}
 function navigate(dir){
-  const next=currentIdx+dir;
-  if(next<0||next>=images.length)return;
-  currentIdx=next;renderSheet();
+  const pos=visibleList.indexOf(currentIdx);
+  const next=pos+dir;
+  if(next<0||next>=visibleList.length)return;
+  currentIdx=visibleList[next];renderSheet();
 }
 function onOverlayClick(e){if(e.target===document.getElementById('overlay'))closeModal();}
 
@@ -666,8 +852,9 @@ function renderSheet(){
   document.getElementById('s-thumb').src=item.url;
   document.getElementById('s-fname').textContent=item.name;
   document.getElementById('s-fmt').textContent=d?d.format:'不明';
-  document.getElementById('btn-prev').disabled=currentIdx===0;
-  document.getElementById('btn-next').disabled=currentIdx===images.length-1;
+  const pos=visibleList.indexOf(currentIdx);
+  document.getElementById('btn-prev').disabled=pos<=0;
+  document.getElementById('btn-next').disabled=pos>=visibleList.length-1;
   const tabBar=document.getElementById('tab-bar');
   const content=document.getElementById('sheet-content');
   tabBar.innerHTML='';content.innerHTML='';
@@ -686,18 +873,16 @@ function renderSheet(){
     btn.onclick=()=>{
       document.querySelectorAll('#tab-bar .tab-btn').forEach(b=>b.classList.remove('active'));
       document.querySelectorAll('#sheet-content .tab-pane').forEach(p=>p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('tp-'+tab.id).classList.add('active');
+      btn.classList.add('active');document.getElementById('tp-'+tab.id).classList.add('active');
     };
     tabBar.appendChild(btn);
     const pane=document.createElement('div');
     pane.className='tab-pane'+(i===0?' active':'');pane.id='tp-'+tab.id;
-    pane.innerHTML=tab.render(d);
-    content.appendChild(pane);
+    pane.innerHTML=tab.render(d);content.appendChild(pane);
   });
 }
 
-// ─── Renderers ───
+// ─── Tab renderers ───
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function hlLora(t){return esc(t).replace(/&lt;lora:[^&]*&gt;/g,m=>`<span class="lora-hi">${m}</span>`);}
 
@@ -705,13 +890,20 @@ function renderPrompts(d){
   const pos=d.positive||'',neg=d.negative||'';
   return `
     <div class="prompt-block">
-      <div class="prompt-row"><span class="prompt-label lbl-pos">Positive</span>
-        <button class="btn-copy" onclick="copyPrompt(this,'positive')">コピー</button></div>
+      <div class="prompt-row">
+        <span class="prompt-label lbl-pos">Positive</span>
+        <div class="prompt-actions">
+          <button class="btn-star" onclick="promptSaveFavorite()">★ 保存</button>
+          <button class="btn-copy" onclick="copyPrompt(this,'positive')">コピー</button>
+        </div>
+      </div>
       <div class="prompt-text pos ${!pos?'empty':''}">${pos?hlLora(pos):'（なし）'}</div>
     </div>
     <div class="prompt-block">
-      <div class="prompt-row"><span class="prompt-label lbl-neg">Negative</span>
-        <button class="btn-copy" onclick="copyPrompt(this,'negative')">コピー</button></div>
+      <div class="prompt-row">
+        <span class="prompt-label lbl-neg">Negative</span>
+        <button class="btn-copy" onclick="copyPrompt(this,'negative')">コピー</button>
+      </div>
       <div class="prompt-text neg ${!neg?'empty':''}">${neg?hlLora(neg):'（なし）'}</div>
     </div>`;
 }
@@ -734,33 +926,28 @@ function renderSettings(d){
 }
 
 // ═══════════════════════════════════════════
-//  Copy
+//  Copy / Toast
 // ═══════════════════════════════════════════
-function copyPrompt(btn,type){
-  const d=images[currentIdx]?.data;if(!d)return;
-  doCopy(btn,d[type]||'');
-}
-async function doCopy(btn,text){
-  try{
-    if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);
-    else fallbackCopy(text);
-  }catch(e){fallbackCopy(text);}
-  if(btn){btn.classList.add('copied');btn.textContent='✓';setTimeout(()=>{btn.classList.remove('copied');btn.textContent='コピー';},1600);}
-  const t=document.getElementById('toast');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);
+function copyPrompt(btn,type){const d=images[currentIdx]?.data;if(!d)return;doCopy(btn,d[type]||'');}
+
+async function doCopy(btn,text,msg){
+  try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);else fallbackCopy(text);}
+  catch(e){fallbackCopy(text);}
+  if(btn){btn.classList.add('copied');const orig=btn.textContent;btn.textContent='✓';setTimeout(()=>{btn.classList.remove('copied');btn.textContent=orig;},1600);}
+  showToast(msg||'コピーしました');
 }
 function fallbackCopy(text){
   const ta=document.createElement('textarea');ta.value=text;
   ta.style.cssText='position:fixed;opacity:0;top:0;left:0;width:1px;height:1px;';
   document.body.appendChild(ta);ta.focus();ta.select();
-  try{document.execCommand('copy');}catch(e){}
-  document.body.removeChild(ta);
+  try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);
 }
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;
-  t.classList.add('show');setTimeout(()=>{t.classList.remove('show');t.textContent='コピーしました';},2000);
+  t.classList.add('show');setTimeout(()=>{t.classList.remove('show');},2000);
 }
 
-// ─── Swipe down to close ───
+// ─── Swipe down to close modal ───
 (()=>{
   const sheet=document.getElementById('sheet');
   let sy=0,drag=false;
@@ -769,10 +956,10 @@ function showToast(msg){
   sheet.addEventListener('touchend',e=>{if(!drag)return;drag=false;const dy=e.changedTouches[0].clientY-sy;sheet.style.transform='';if(dy>100)closeModal();});
 })();
 
-// ─── Init: パス入力欄の初期値を設定（自動読み込みなし）───
+// ─── Init ───
 window.addEventListener('load',()=>{
-  const picPath=window.AndroidBridge.getPicturesPath();
-  document.getElementById('path-input').value=picPath;
+  document.getElementById('path-input').value=window.AndroidBridge.getPicturesPath();
+  updateFavBadge();
 });
 </script>
 </body>
