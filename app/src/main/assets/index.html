@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SD Prompt Viewer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0d0d0d;--surface:#181818;--surface2:#232323;--surface3:#2d2d2d;
+  --accent:#8b6fd4;--text:#e8e8e8;--text2:#888;--border:#2e2e2e;
+  --pos-color:#6fcf8b;--neg-color:#e07070;
+  --lora-color:#70c0e0;--lora-bg:#1a2e38;
+  --id-color:#e8c86e;--id-bg:#2e2814;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;flex-direction:column}
+
+/* ── Header ── */
+header{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:8px 12px;flex-shrink:0;z-index:10;
+}
+.title-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.app-title{
+  font-size:15px;font-weight:700;flex:1;
+  background:linear-gradient(120deg,#a078e8,#6ab0e8);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.count-badge{font-size:12px;color:var(--text2)}
+
+/* Path bar */
+.path-bar{display:flex;gap:6px;align-items:center}
+.path-input{
+  flex:1;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);border-radius:8px;padding:7px 10px;font-size:12px;
+  font-family:monospace;min-width:0;
+}
+.path-input:focus{outline:none;border-color:var(--accent)}
+.btn-open{
+  background:var(--accent);color:#fff;border:none;
+  padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;
+}
+.btn-open:active{opacity:.75}
+.btn-browse{
+  background:var(--surface3);color:var(--text);border:1px solid var(--border);
+  padding:7px 12px;border-radius:8px;font-size:13px;cursor:pointer;white-space:nowrap;
+}
+.btn-browse:active{opacity:.75}
+
+/* Progress bar */
+.progress-wrap{height:3px;background:var(--surface2);display:none}
+.progress-wrap.show{display:block}
+.progress-bar{height:100%;background:var(--accent);width:0%;transition:width .1s}
+
+/* ── Gallery ── */
+.gallery-wrap{flex:1;overflow-y:auto;overscroll-behavior:contain}
+.gallery{
+  padding:4px;display:grid;
+  grid-template-columns:repeat(3,1fr);gap:3px;
+}
+@media(min-width:480px){.gallery{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:720px){.gallery{grid-template-columns:repeat(5,1fr)}}
+
+.g-item{aspect-ratio:1;position:relative;overflow:hidden;border-radius:6px;cursor:pointer;background:var(--surface2)}
+.g-item img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .15s}
+.g-item:active img{transform:scale(.94)}
+.g-badges{position:absolute;bottom:3px;right:3px;display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end}
+.g-badge{font-size:9px;font-weight:700;padding:2px 4px;border-radius:3px;background:rgba(0,0,0,.72);line-height:1.2}
+.gb-lora{color:var(--lora-color)}.gb-id{color:var(--id-color)}.gb-fmt{color:var(--text2)}
+.g-del{
+  position:absolute;top:4px;right:4px;background:rgba(0,0,0,.7);
+  border:none;color:#fff;width:22px;height:22px;border-radius:50%;
+  font-size:14px;cursor:pointer;display:none;align-items:center;justify-content:center;
+}
+.g-item:hover .g-del{display:flex}
+
+/* Empty / loading state */
+.empty-state{
+  grid-column:1/-1;text-align:center;padding:60px 24px;color:var(--text2);
+}
+.empty-state svg{opacity:.25;margin-bottom:14px}
+.empty-state p{font-size:14px;line-height:1.7}
+
+/* ── Dir picker overlay ── */
+.dir-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:300;
+  display:none;flex-direction:column;
+}
+.dir-overlay.open{display:flex}
+.dir-header{
+  background:var(--surface);padding:12px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+.dir-title{font-size:14px;font-weight:600;flex:1}
+.dir-current{font-size:11px;color:var(--text2);font-family:monospace;padding:6px 14px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dir-list{flex:1;overflow-y:auto}
+.dir-item{
+  padding:13px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;cursor:pointer;
+}
+.dir-item:active{background:var(--surface2)}
+.dir-icon{font-size:20px;flex-shrink:0}
+.dir-info{flex:1;min-width:0}
+.dir-name{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dir-name.hidden-dir{color:var(--accent)}
+.dir-meta{font-size:11px;color:var(--text2);margin-top:2px}
+.dir-select{
+  background:var(--accent);color:#fff;border:none;
+  padding:5px 12px;border-radius:16px;font-size:12px;cursor:pointer;flex-shrink:0;
+}
+
+/* ── Bottom sheet modal ── */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:100;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+  display:flex;flex-direction:column;justify-content:flex-end;
+}
+.overlay.open{opacity:1;pointer-events:all}
+.sheet{
+  background:var(--surface);border-radius:18px 18px 0 0;max-height:90vh;
+  display:flex;flex-direction:column;
+  transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1);overflow:hidden;
+}
+.overlay.open .sheet{transform:translateY(0)}
+.sheet-handle-row{padding:10px 16px 0;flex-shrink:0}
+.sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto}
+.sheet-header{padding:10px 14px 0;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.sheet-thumb{width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--surface2)}
+.sheet-meta{flex:1;min-width:0}
+.sheet-fname{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet-fmt{display:inline-block;margin-top:3px;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--surface3);color:var(--text2)}
+.sheet-nav{display:flex;gap:6px}
+.btn-nav,.btn-close{
+  background:var(--surface3);border:none;color:var(--text2);
+  width:30px;height:30px;border-radius:50%;font-size:17px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.btn-close{color:var(--text)}
+.btn-nav:disabled{opacity:.3;pointer-events:none}
+
+/* Tabs */
+.tab-bar{
+  display:flex;padding:0 14px;border-bottom:1px solid var(--border);
+  margin-top:10px;overflow-x:auto;scrollbar-width:none;flex-shrink:0;
+}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-btn{
+  background:none;border:none;color:var(--text2);padding:9px 14px;
+  font-size:13px;cursor:pointer;white-space:nowrap;
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+}
+.tab-btn.active{color:var(--text);border-bottom-color:var(--accent)}
+.sheet-content{flex:1;overflow-y:auto;padding:14px;overscroll-behavior:contain}
+.tab-pane{display:none}.tab-pane.active{display:block}
+
+/* Prompt */
+.prompt-block{margin-bottom:14px}
+.prompt-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.prompt-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.lbl-pos{color:var(--pos-color)}.lbl-neg{color:var(--neg-color)}
+.btn-copy{
+  background:var(--surface3);border:1px solid var(--border);color:var(--text);
+  padding:4px 12px;border-radius:14px;font-size:11px;cursor:pointer;transition:background .12s;
+}
+.btn-copy:active,.btn-copy.copied{background:var(--accent);border-color:var(--accent);color:#fff}
+.prompt-text{
+  background:var(--surface2);border-radius:10px;padding:11px 12px;
+  font-size:13px;line-height:1.65;word-break:break-word;white-space:pre-wrap;border-left:3px solid;
+}
+.prompt-text.pos{border-left-color:var(--pos-color)}
+.prompt-text.neg{border-left-color:var(--neg-color)}
+.prompt-text.empty{color:var(--text2);font-style:italic;border-left-color:var(--border)}
+.lora-hi{background:var(--lora-bg);color:var(--lora-color);border-radius:4px;padding:0 3px;font-size:.92em}
+
+/* LoRA */
+.lora-list{display:flex;flex-direction:column;gap:6px}
+.lora-item{
+  background:var(--surface2);border-radius:10px;padding:11px 13px;
+  display:flex;justify-content:space-between;align-items:center;
+  border-left:3px solid var(--lora-color);gap:8px;
+}
+.lora-name{font-size:13px;font-weight:500;color:var(--lora-color);word-break:break-all;flex:1}
+.lora-wt{font-size:11px;background:var(--lora-bg);padding:3px 10px;border-radius:12px;color:var(--lora-color);white-space:nowrap}
+
+/* InstantID */
+.id-item{background:var(--id-bg);border-radius:10px;padding:11px 13px;border-left:3px solid var(--id-color);margin-bottom:6px}
+.id-source{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--id-color);margin-bottom:5px}
+.id-detail{font-size:12px;color:var(--text);word-break:break-all}
+
+/* Settings */
+.settings-list{display:flex;flex-direction:column;gap:3px}
+.setting-row{display:flex;gap:8px;padding:7px 10px;border-radius:8px;background:var(--surface2);font-size:12px}
+.sk{color:var(--text2);flex-shrink:0;min-width:90px}.sv{color:var(--text);word-break:break-all}
+
+.no-data{color:var(--text2);font-size:13px;text-align:center;padding:28px;line-height:1.6}
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(56px);
+  background:var(--accent);color:#fff;padding:8px 20px;border-radius:20px;
+  font-size:13px;z-index:999;transition:transform .2s;pointer-events:none;
+}
+.toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-row">
+    <h1 class="app-title">SD Prompt Viewer</h1>
+    <span class="count-badge" id="count-badge"></span>
+  </div>
+  <div class="path-bar">
+    <input type="text" class="path-input" id="path-input"
+           placeholder="/storage/emulated/0/Pictures">
+    <button class="btn-browse" onclick="openDirPicker()">📁</button>
+    <button class="btn-open" onclick="openPath()">開く</button>
+  </div>
+</header>
+
+<div class="progress-wrap" id="progress-wrap">
+  <div class="progress-bar" id="progress-bar"></div>
+</div>
+
+<div class="gallery-wrap">
+  <div class="gallery" id="gallery">
+    <div class="empty-state" id="empty-state">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+        <rect x="3" y="3" width="18" height="18" rx="3"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <path d="m21 15-5-5L5 21"/>
+      </svg>
+      <p>フォルダパスを入力して「開く」<br>隠しフォルダも読み込めます</p>
+    </div>
+  </div>
+</div>
+
+<!-- Dir picker -->
+<div class="dir-overlay" id="dir-overlay">
+  <div class="dir-header">
+    <button class="btn-close" onclick="closeDirPicker()" style="color:var(--text)">×</button>
+    <span class="dir-title">フォルダを選択</span>
+    <button class="btn-browse" id="dir-up-btn" onclick="dirUp()" disabled>↑ 上へ</button>
+  </div>
+  <div class="dir-current" id="dir-current"></div>
+  <div class="dir-list" id="dir-list"></div>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay" onclick="onOverlayClick(event)">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle-row"><div class="sheet-handle"></div></div>
+    <div class="sheet-header">
+      <img class="sheet-thumb" id="s-thumb" src="" alt="">
+      <div class="sheet-meta">
+        <div class="sheet-fname" id="s-fname"></div>
+        <span class="sheet-fmt" id="s-fmt"></span>
+      </div>
+      <div class="sheet-nav">
+        <button class="btn-nav" id="btn-prev" onclick="navigate(-1)">‹</button>
+        <button class="btn-nav" id="btn-next" onclick="navigate(1)">›</button>
+      </div>
+      <button class="btn-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="tab-bar" id="tab-bar"></div>
+    <div class="sheet-content" id="sheet-content"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">コピーしました</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+//  PNG binary parser
+// ═══════════════════════════════════════════
+function parsePNGChunks(buf){
+  const a=new Uint8Array(buf);
+  const SIG=[137,80,78,71,13,10,26,10];
+  for(let i=0;i<8;i++) if(a[i]!==SIG[i]) return null;
+  const R32=o=>((a[o]<<24)|(a[o+1]<<16)|(a[o+2]<<8)|a[o+3])>>>0;
+  const L1=(s,e)=>{let r='';for(let i=s;i<e;i++)r+=String.fromCharCode(a[i]);return r;};
+  const nullAt=(s,e)=>{for(let i=s;i<e;i++)if(a[i]===0)return i;return -1;};
+  const chunks={};let off=8;
+  while(off+12<=a.length){
+    const len=R32(off);
+    const type=L1(off+4,off+8);
+    if(type==='tEXt'&&off+8+len<=a.length){
+      const end=off+8+len;const ni=nullAt(off+8,end);
+      if(ni>=0){const key=L1(off+8,ni);const val=L1(ni+1,end);if(!(key in chunks))chunks[key]=val;}
+    }else if(type==='iTXt'&&off+8+len<=a.length){
+      let p=off+8;const end=off+8+len;
+      const ni=nullAt(p,end);if(ni<0){off+=12+len;continue;}
+      const key=L1(p,ni);p=ni+1;if(p+2>end){off+=12+len;continue;}
+      const compr=a[p];p+=2;
+      const ni2=nullAt(p,end);if(ni2<0){off+=12+len;continue;}p=ni2+1;
+      const ni3=nullAt(p,end);if(ni3<0){off+=12+len;continue;}p=ni3+1;
+      if(compr===0){try{const val=new TextDecoder('utf-8').decode(a.slice(p,end));if(!(key in chunks))chunks[key]=val;}catch(e){}}
+    }
+    if(type==='IEND')break;off+=12+len;
+  }
+  return chunks;
+}
+
+// ═══════════════════════════════════════════
+//  JPEG EXIF UserComment
+// ═══════════════════════════════════════════
+function readJpegUserComment(buf){
+  const a=new Uint8Array(buf);
+  if(a[0]!==0xFF||a[1]!==0xD8) return null;
+  let off=2;
+  while(off+4<a.length){
+    if(a[off]!==0xFF) break;
+    const mk=a[off+1];if(mk===0xDA)break;
+    const slen=(a[off+2]<<8)|a[off+3];
+    if(mk===0xE1){
+      const EX=[0x45,0x78,0x69,0x66,0,0];let ok=true;
+      for(let i=0;i<6;i++)if(a[off+4+i]!==EX[i]){ok=false;break;}
+      if(ok){const c=parseExifUC(a,off+10);if(c)return c;}
+    }
+    off+=2+slen;
+  }
+  return null;
+}
+function parseExifUC(a,to){
+  const le=a[to]===0x49;
+  const R16=o=>le?(a[to+o]|(a[to+o+1]<<8)):((a[to+o]<<8)|a[to+o+1]);
+  const R32=o=>le?((a[to+o]|(a[to+o+1]<<8)|(a[to+o+2]<<16)|(a[to+o+3]<<24))>>>0):(((a[to+o]<<24)|(a[to+o+1]<<16)|(a[to+o+2]<<8)|a[to+o+3])>>>0);
+  if(R16(2)!==0x002A)return null;
+  const ifd0=R32(4);const cnt0=R16(ifd0);let subOff=-1;
+  for(let i=0;i<cnt0;i++){const e=ifd0+2+i*12;if(R16(e)===0x8769){subOff=R32(e+8);break;}}
+  if(subOff<0)return null;
+  const cntS=R16(subOff);
+  for(let i=0;i<cntS;i++){
+    const e=subOff+2+i*12;
+    if(R16(e)===0x9286){
+      const cnt=R32(e+4);const valOff=cnt>4?R32(e+8):e+8;
+      const charset=Array.from(a.slice(to+valOff,to+valOff+8)).map(b=>String.fromCharCode(b)).join('').replace(/\0/g,'').trim();
+      const tb=a.slice(to+valOff+8,to+valOff+cnt);
+      let txt;
+      try{txt=charset==='UNICODE'?new TextDecoder('utf-16'+(le?'le':'be')).decode(tb):new TextDecoder('utf-8').decode(tb);}
+      catch(e2){txt=Array.from(tb).map(b=>String.fromCharCode(b)).join('');}
+      return txt.replace(/\0/g,'').trim()||null;
+    }
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════
+//  Format parsers
+// ═══════════════════════════════════════════
+function extractLoras(t){
+  const r=[];const rx=/<lora:([^:>]+):([^>]+)>/g;let m;
+  while((m=rx.exec(t))!==null)r.push({name:m[1],weight:m[2]});return r;
+}
+function parseA1111(raw){
+  const stRx=/\n(Steps|Sampler|CFG scale|Seed|Size|Model hash|Hires|ControlNet)/;
+  const stM=stRx.exec(raw);const stIdx=stM?stM.index:-1;
+  const body=stIdx>=0?raw.slice(0,stIdx):raw;
+  const settingsText=stIdx>=0?raw.slice(stIdx+1):'';
+  const negMark='\nNegative prompt:';const negMarkAlt='Negative prompt:';
+  let pos='',neg='';
+  const ni=body.indexOf(negMark);
+  if(ni>=0){pos=body.slice(0,ni).trim();neg=body.slice(ni+negMark.length).trim();}
+  else{
+    const ni2=body.indexOf(negMarkAlt);
+    if(ni2===0){neg=body.slice(negMarkAlt.length).trim();}
+    else if(ni2>0){pos=body.slice(0,ni2).trim();neg=body.slice(ni2+negMarkAlt.length).trim();}
+    else{pos=body.trim();}
+  }
+  const settings=parseKVSettings(settingsText);
+  const loras=[...extractLoras(pos),...extractLoras(neg)];
+  const instantID=detectInstantA1111(settings,raw);
+  return{format:'A1111',positive:pos,negative:neg,settings,loras,instantID};
+}
+function parseKVSettings(text){
+  const s={};
+  const parts=text.split(/,\s*(?=[A-Za-z][A-Za-z0-9 _]*:)/);
+  for(const p of parts){const ci=p.indexOf(':');if(ci>0){const k=p.slice(0,ci).trim();const v=p.slice(ci+1).trim();if(k&&v)s[k]=v;}}
+  return s;
+}
+function detectInstantA1111(settings,raw){
+  const r=[];
+  for(const[k,v]of Object.entries(settings)){
+    if(/instant.?id/i.test(k)||(/controlnet/i.test(k)&&/instant.?id/i.test(v)))r.push({source:k,detail:v});
+  }
+  for(const m of raw.matchAll(/instant.?id\s*[^\n,]*/gi)){
+    const d=m[0].trim();if(!r.some(x=>x.detail===d))r.push({source:'detected',detail:d});
+  }
+  return r;
+}
+function parseComfyUI(pj){
+  let pos='',neg='';const loras=[];const instantID=[];const settings={};
+  for(const[,nd]of Object.entries(pj)){
+    const ct=nd.class_type||'';const inp=nd.inputs||{};
+    if(/loraloader/i.test(ct)){
+      loras.push({name:inp.lora_name||'?',weight:inp.strength_model!==undefined?String(inp.strength_model):inp.strength!==undefined?String(inp.strength):'?',weight_clip:inp.strength_clip!==undefined?String(inp.strength_clip):undefined});
+    }
+    if(/instantid/i.test(ct)){instantID.push({source:ct,detail:JSON.stringify(inp).replace(/"[^"]*":/g,'').slice(0,160)});}
+    if(/^KSampler/i.test(ct)){
+      if(inp.seed!==undefined)settings['Seed']=String(inp.seed);
+      if(inp.steps!==undefined)settings['Steps']=String(inp.steps);
+      if(inp.cfg!==undefined)settings['CFG scale']=String(inp.cfg);
+      if(inp.sampler_name)settings['Sampler']=inp.sampler_name;
+      if(inp.scheduler)settings['Scheduler']=inp.scheduler;
+      if(inp.denoise!==undefined)settings['Denoise']=String(inp.denoise);
+      if(Array.isArray(inp.positive)){const t=resolveClipText(pj,String(inp.positive[0]));if(t)pos=t;}
+      if(Array.isArray(inp.negative)){const t=resolveClipText(pj,String(inp.negative[0]));if(t)neg=t;}
+    }
+    if(/^CheckpointLoader/i.test(ct)&&inp.ckpt_name)settings['Model']=inp.ckpt_name;
+    if(ct==='EmptyLatentImage'&&inp.width&&inp.height)settings['Size']=`${inp.width}x${inp.height}`;
+  }
+  if(!pos&&!neg){
+    const clips=Object.entries(pj).filter(([,n])=>/CLIPTextEncode/i.test(n.class_type||'')&&typeof(n.inputs?.text)==='string').map(([,n])=>n.inputs.text);
+    if(clips[0])pos=clips[0];if(clips[1])neg=clips[1];
+  }
+  for(const l of extractLoras(pos+' '+neg))if(!loras.some(x=>x.name===l.name))loras.push(l);
+  return{format:'ComfyUI',positive:pos,negative:neg,settings,loras,instantID};
+}
+function resolveClipText(pj,nodeId,depth=0){
+  if(depth>6)return'';const nd=pj[nodeId];if(!nd)return'';
+  if(/CLIPTextEncode/i.test(nd.class_type||'')&&typeof nd.inputs?.text==='string')return nd.inputs.text;
+  for(const v of Object.values(nd.inputs||{})){
+    if(Array.isArray(v)&&typeof v[0]==='string'){const t=resolveClipText(pj,v[0],depth+1);if(t)return t;}
+  }
+  return'';
+}
+function parseFooocus(json){
+  const pos=json.prompt||'';const neg=json.negative_prompt||'';
+  const loras=(json.loras||[]).map(l=>({name:l.model_name||l.name||'?',weight:String(l.weight??'?')}));
+  const settings={};
+  for(const f of['steps','sampler','scheduler','cfg','seed','resolution','base_model_name'])if(json[f]!==undefined)settings[f]=String(json[f]);
+  return{format:'Fooocus',positive:pos,negative:neg,settings,loras,instantID:[]};
+}
+function parseInvokeAI(json){
+  const pos=json.positive_prompt||json.prompt||'';const neg=json.negative_prompt||'';
+  const settings={};
+  for(const f of['seed','steps','cfg_scale','scheduler','model','width','height'])if(json[f]!==undefined)settings[f]=String(json[f]);
+  const loras=(json.loras||[]).map(l=>({name:l.model?.name||l.name||'?',weight:String(l.weight??'?')}));
+  return{format:'InvokeAI',positive:pos,negative:neg,settings,loras,instantID:[]};
+}
+function detectAndParse(chunks,jpegComment){
+  if(chunks['sui_image_params']){try{const j=JSON.parse(chunks['sui_image_params']);return{...{steps:j.steps,cfgscale:j.cfgscale},format:'SwarmUI',positive:j.prompt||'',negative:j.negativeprompt||'',settings:{},loras:extractLoras((j.prompt||'')+' '+(j.negativeprompt||'')),instantID:[]};}catch(e){}}
+  if(chunks['parameters']){if(!chunks['prompt']||/Steps:|Sampler:|Seed:/.test(chunks['parameters']))return parseA1111(chunks['parameters']);}
+  if(chunks['invokeai_metadata']){try{return parseInvokeAI(JSON.parse(chunks['invokeai_metadata']));}catch(e){}}
+  if(chunks['Comment']){try{const j=JSON.parse(chunks['Comment']);if(j.prompt!==undefined)return parseFooocus(j);}catch(e){}}
+  if(chunks['prompt']){try{return parseComfyUI(JSON.parse(chunks['prompt']));}catch(e){}}
+  if(jpegComment)return parseA1111(jpegComment);
+  return null;
+}
+
+// ═══════════════════════════════════════════
+//  Base64 → ArrayBuffer helper (app mode)
+// ═══════════════════════════════════════════
+function base64ToBuffer(b64){
+  const bin=atob(b64);const buf=new ArrayBuffer(bin.length);
+  const v=new Uint8Array(buf);for(let i=0;i<bin.length;i++)v[i]=bin.charCodeAt(i);
+  return buf;
+}
+
+// ═══════════════════════════════════════════
+//  File reading (app mode only)
+// ═══════════════════════════════════════════
+function readMetaApp(path){
+  return new Promise(resolve=>{
+    setTimeout(()=>{
+      const b64=window.AndroidBridge.readFileBase64(path);
+      if(!b64){resolve(null);return;}
+      const buffer=base64ToBuffer(b64);
+      const arr=new Uint8Array(buffer);
+      let chunks={},jpegComment=null;
+      if(arr[0]===137&&arr[1]===80){chunks=parsePNGChunks(buffer)||{};}
+      else if(arr[0]===0xFF&&arr[1]===0xD8){jpegComment=readJpegUserComment(buffer);}
+      resolve(detectAndParse(chunks,jpegComment));
+    },0);
+  });
+}
+
+// ═══════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════
+const images=[];
+let currentIdx=-1;
+let activeTabs=[];
+
+// ═══════════════════════════════════════════
+//  Gallery
+// ═══════════════════════════════════════════
+const gallery=document.getElementById('gallery');
+const emptyState=document.getElementById('empty-state');
+const countBadge=document.getElementById('count-badge');
+const progressWrap=document.getElementById('progress-wrap');
+const progressBar=document.getElementById('progress-bar');
+
+function showProgress(pct){
+  progressWrap.classList.add('show');
+  progressBar.style.width=pct+'%';
+}
+function hideProgress(){
+  setTimeout(()=>{progressWrap.classList.remove('show');progressBar.style.width='0%';},400);
+}
+
+async function openPath(){
+  const path=document.getElementById('path-input').value.trim();
+  if(!path) return;
+  if(!window.AndroidBridge.exists(path)){
+    showToast('フォルダが見つかりません');return;
+  }
+  // Save to recent
+  saveRecent(path);
+  await loadFolder(path);
+}
+
+async function loadFolder(path){
+  const json=window.AndroidBridge.listImages(path);
+  const files=JSON.parse(json);
+
+  // Clear gallery
+  images.length=0;
+  gallery.querySelectorAll('.g-item').forEach(el=>el.remove());
+  emptyState.style.display='none';
+
+  if(!files.length){
+    emptyState.style.display='';
+    emptyState.querySelector('p').textContent='画像が見つかりませんでした';
+    return;
+  }
+
+  showProgress(0);
+  for(let i=0;i<files.length;i++){
+    const f=files[i];
+    const url=`localfile://${f.path}`;
+    const data=await readMetaApp(f.path);
+    images.push({name:f.name,path:f.path,url,data});
+    renderGalleryItem(images.length-1);
+    showProgress((i+1)/files.length*100);
+  }
+  hideProgress();
+  updateCount();
+}
+
+function renderGalleryItem(idx){
+  const item=images[idx];
+  const div=document.createElement('div');
+  div.className='g-item';
+  const img=document.createElement('img');
+  img.src=item.url; img.loading='lazy';
+  div.appendChild(img);
+  const d=item.data;
+  const badges=[];
+  if(d){
+    if(d.loras?.length)badges.push(`<span class="g-badge gb-lora">L×${d.loras.length}</span>`);
+    if(d.instantID?.length)badges.push(`<span class="g-badge gb-id">ID</span>`);
+    badges.push(`<span class="g-badge gb-fmt">${d.format}</span>`);
+  }
+  if(badges.length){const bd=document.createElement('div');bd.className='g-badges';bd.innerHTML=badges.join('');div.appendChild(bd);}
+  const del=document.createElement('button');
+  del.className='g-del';del.innerHTML='×';
+  del.onclick=ev=>{ev.stopPropagation();images.splice(idx,1);div.remove();updateCount();if(currentIdx>=0)closeModal();};
+  div.appendChild(del);
+  div.onclick=()=>openModal(idx);
+  gallery.appendChild(div);
+}
+
+function updateCount(){
+  countBadge.textContent=images.length?`${images.length}枚`:'';
+}
+
+// ═══════════════════════════════════════════
+//  Directory picker
+// ═══════════════════════════════════════════
+let dirStack=[];
+
+function openDirPicker(){
+  const picturePath=window.AndroidBridge.getPicturesPath();
+  dirStack=[picturePath];
+  renderDirList(picturePath);
+  document.getElementById('dir-overlay').classList.add('open');
+}
+function closeDirPicker(){
+  document.getElementById('dir-overlay').classList.remove('open');
+}
+function dirUp(){
+  if(dirStack.length<=1)return;
+  dirStack.pop();
+  renderDirList(dirStack[dirStack.length-1]);
+}
+function renderDirList(path){
+  document.getElementById('dir-current').textContent=path;
+  document.getElementById('dir-up-btn').disabled=dirStack.length<=1;
+  const json=window.AndroidBridge.listDirs(path);
+  const dirs=JSON.parse(json);
+  const list=document.getElementById('dir-list');
+  list.innerHTML='';
+
+  // "このフォルダを開く" button at top
+  const selRow=document.createElement('div');
+  selRow.className='dir-item';
+  selRow.style.background='var(--surface2)';
+  selRow.innerHTML=`<span class="dir-icon">✓</span><div class="dir-info"><div class="dir-name" style="color:var(--accent)">このフォルダを開く</div><div class="dir-meta">${path}</div></div>`;
+  selRow.onclick=()=>selectDir(path);
+  list.appendChild(selRow);
+
+  if(!dirs.length){
+    const empty=document.createElement('div');
+    empty.style.cssText='padding:24px;text-align:center;color:var(--text2);font-size:13px';
+    empty.textContent='サブフォルダなし';
+    list.appendChild(empty);
+    return;
+  }
+  for(const d of dirs){
+    const row=document.createElement('div');
+    row.className='dir-item';
+    const count=d.imageCount>0?`${d.imageCount}枚の画像`:'';
+    const hiddenLabel=d.hidden?'<span style="font-size:10px;background:#3a2a6a;color:#b090f0;padding:1px 5px;border-radius:4px;margin-left:4px">hidden</span>':'';
+    row.innerHTML=`
+      <span class="dir-icon">📁</span>
+      <div class="dir-info">
+        <div class="dir-name ${d.hidden?'hidden-dir':''}">${esc(d.name)}${hiddenLabel}</div>
+        ${count?`<div class="dir-meta">${count}</div>`:''}
+      </div>
+      <button class="dir-select" onclick="event.stopPropagation();selectDir('${d.path.replace(/'/g,"\\'")}')">開く</button>`;
+    row.onclick=()=>drillDown(d.path);
+    list.appendChild(row);
+  }
+}
+function drillDown(path){
+  dirStack.push(path);
+  renderDirList(path);
+}
+function selectDir(path){
+  document.getElementById('path-input').value=path;
+  closeDirPicker();
+  loadFolder(path);
+}
+
+// Recent paths in localStorage
+function saveRecent(path){
+  try{
+    let recent=JSON.parse(localStorage.getItem('recentPaths')||'[]');
+    recent=recent.filter(p=>p!==path);
+    recent.unshift(path);
+    recent=recent.slice(0,5);
+    localStorage.setItem('recentPaths',JSON.stringify(recent));
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════
+//  Modal
+// ═══════════════════════════════════════════
+function openModal(idx){
+  currentIdx=idx;
+  renderSheet();
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('overlay').classList.remove('open');}
+function navigate(dir){
+  const next=currentIdx+dir;
+  if(next<0||next>=images.length)return;
+  currentIdx=next;renderSheet();
+}
+function onOverlayClick(e){if(e.target===document.getElementById('overlay'))closeModal();}
+
+function renderSheet(){
+  const item=images[currentIdx];const d=item?.data;
+  document.getElementById('s-thumb').src=item.url;
+  document.getElementById('s-fname').textContent=item.name;
+  document.getElementById('s-fmt').textContent=d?d.format:'不明';
+  document.getElementById('btn-prev').disabled=currentIdx===0;
+  document.getElementById('btn-next').disabled=currentIdx===images.length-1;
+  const tabBar=document.getElementById('tab-bar');
+  const content=document.getElementById('sheet-content');
+  tabBar.innerHTML='';content.innerHTML='';
+  if(!d){
+    content.innerHTML='<div class="no-data">メタデータが見つかりませんでした<br><small>A1111 / ComfyUI / Fooocus / InvokeAI 対応</small></div>';
+    return;
+  }
+  activeTabs=[];
+  activeTabs.push({id:'prompts',label:'プロンプト',render:renderPrompts});
+  if(d.loras?.length)activeTabs.push({id:'lora',label:`LoRA (${d.loras.length})`,render:renderLoras});
+  if(d.instantID?.length)activeTabs.push({id:'id',label:'InstantID',render:renderInstantID});
+  if(Object.keys(d.settings||{}).length)activeTabs.push({id:'settings',label:'設定',render:renderSettings});
+  activeTabs.forEach((tab,i)=>{
+    const btn=document.createElement('button');
+    btn.className='tab-btn'+(i===0?' active':'');btn.textContent=tab.label;
+    btn.onclick=()=>{
+      document.querySelectorAll('#tab-bar .tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('#sheet-content .tab-pane').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tp-'+tab.id).classList.add('active');
+    };
+    tabBar.appendChild(btn);
+    const pane=document.createElement('div');
+    pane.className='tab-pane'+(i===0?' active':'');pane.id='tp-'+tab.id;
+    pane.innerHTML=tab.render(d);
+    content.appendChild(pane);
+  });
+}
+
+// ─── Renderers ───
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function hlLora(t){return esc(t).replace(/&lt;lora:[^&]*&gt;/g,m=>`<span class="lora-hi">${m}</span>`);}
+
+function renderPrompts(d){
+  const pos=d.positive||'',neg=d.negative||'';
+  return `
+    <div class="prompt-block">
+      <div class="prompt-row"><span class="prompt-label lbl-pos">Positive</span>
+        <button class="btn-copy" onclick="copyPrompt(this,'positive')">コピー</button></div>
+      <div class="prompt-text pos ${!pos?'empty':''}">${pos?hlLora(pos):'（なし）'}</div>
+    </div>
+    <div class="prompt-block">
+      <div class="prompt-row"><span class="prompt-label lbl-neg">Negative</span>
+        <button class="btn-copy" onclick="copyPrompt(this,'negative')">コピー</button></div>
+      <div class="prompt-text neg ${!neg?'empty':''}">${neg?hlLora(neg):'（なし）'}</div>
+    </div>`;
+}
+function renderLoras(d){
+  if(!d.loras?.length)return'<div class="no-data">LoRAなし</div>';
+  return'<div class="lora-list">'+d.loras.map(l=>`
+    <div class="lora-item">
+      <span class="lora-name">${esc(l.name)}</span>
+      <span class="lora-wt">${l.weight_clip?`model ${esc(l.weight)} / clip ${esc(l.weight_clip)}`:esc(l.weight)}</span>
+    </div>`).join('')+'</div>';
+}
+function renderInstantID(d){
+  if(!d.instantID?.length)return'<div class="no-data">InstantIDなし</div>';
+  return d.instantID.map(id=>`<div class="id-item"><div class="id-source">${esc(id.source)}</div><div class="id-detail">${esc(id.detail)}</div></div>`).join('');
+}
+function renderSettings(d){
+  const s=d.settings||{};if(!Object.keys(s).length)return'<div class="no-data">設定なし</div>';
+  return'<div class="settings-list">'+Object.entries(s).map(([k,v])=>`
+    <div class="setting-row"><span class="sk">${esc(k)}</span><span class="sv">${esc(v)}</span></div>`).join('')+'</div>';
+}
+
+// ═══════════════════════════════════════════
+//  Copy
+// ═══════════════════════════════════════════
+function copyPrompt(btn,type){
+  const d=images[currentIdx]?.data;if(!d)return;
+  doCopy(btn,d[type]||'');
+}
+async function doCopy(btn,text){
+  try{
+    if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);
+    else fallbackCopy(text);
+  }catch(e){fallbackCopy(text);}
+  if(btn){btn.classList.add('copied');btn.textContent='✓';setTimeout(()=>{btn.classList.remove('copied');btn.textContent='コピー';},1600);}
+  const t=document.getElementById('toast');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);
+}
+function fallbackCopy(text){
+  const ta=document.createElement('textarea');ta.value=text;
+  ta.style.cssText='position:fixed;opacity:0;top:0;left:0;width:1px;height:1px;';
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{document.execCommand('copy');}catch(e){}
+  document.body.removeChild(ta);
+}
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;
+  t.classList.add('show');setTimeout(()=>{t.classList.remove('show');t.textContent='コピーしました';},2000);
+}
+
+// ─── Swipe down to close ───
+(()=>{
+  const sheet=document.getElementById('sheet');
+  let sy=0,drag=false;
+  sheet.addEventListener('touchstart',e=>{sy=e.touches[0].clientY;drag=true;},{passive:true});
+  sheet.addEventListener('touchmove',e=>{if(!drag)return;const dy=e.touches[0].clientY-sy;if(dy>0)sheet.style.transform=`translateY(${dy}px)`;},{passive:true});
+  sheet.addEventListener('touchend',e=>{if(!drag)return;drag=false;const dy=e.changedTouches[0].clientY-sy;sheet.style.transform='';if(dy>100)closeModal();});
+})();
+
+// ─── Init: パス入力欄の初期値を設定（自動読み込みなし）───
+window.addEventListener('load',()=>{
+  const picPath=window.AndroidBridge.getPicturesPath();
+  document.getElementById('path-input').value=picPath;
+});
+</script>
+</body>
+</html>

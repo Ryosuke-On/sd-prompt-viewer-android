@@ -1,0 +1,8 @@
+<resources>
+    <style name="Base.Theme.SDPromptViewer" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">#0d0d0d</item>
+        <item name="android:statusBarColor">#181818</item>
+        <item name="android:navigationBarColor">#0d0d0d</item>
+    </style>
+    <style name="Theme.SDPromptViewer" parent="Base.Theme.SDPromptViewer" />
+</resources>
