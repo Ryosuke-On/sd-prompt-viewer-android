@@ -1,45 +1,49 @@
 # SD Prompt Viewer
 
-An Android app for reading and browsing metadata (prompts, LoRA, InstantID, settings) embedded in Stable Diffusion generated images.
+Stable Diffusion で生成した画像に埋め込まれたメタデータ（プロンプト・LoRA・InstantID・設定値）を閲覧できる Android アプリです。
 
-## Features
+## ダウンロード
 
-- **Gallery view** — browse SD images in any folder, including hidden folders (e.g. `.mi`, `.thumbnails`)
-- **Metadata extraction** — reads PNG tEXt/iTXt chunks and JPEG EXIF UserComment directly on-device, no network required
-- **Prompt display** — positive / negative prompts with one-tap copy
-- **LoRA info** — name and weight (model/clip) extracted from prompt text and ComfyUI nodes
-- **InstantID detection** — detects InstantID usage from ControlNet settings or ComfyUI node graph
-- **Settings tab** — seed, steps, CFG scale, sampler, model, etc.
+[Releases](../../releases/latest) ページから最新の `app-debug.apk` をダウンロードしてインストールできます。
 
-## Supported formats
+## 機能
 
-| Format | PNG | JPEG |
+- **ギャラリー表示** — 任意のフォルダを指定して画像一覧を表示。隠しフォルダ（`.` 始まり）も読み込み可能
+- **オフライン処理** — PNG tEXtチャンク / JPEG EXIF を端末上で直接解析。通信なし、画像のアップロードなし
+- **プロンプト表示** — Positive / Negative をワンタップでコピー
+- **LoRA情報** — プロンプトテキストおよび ComfyUI ノードから name / weight を抽出
+- **InstantID 検出** — ControlNet 設定または ComfyUI ノードグラフから自動検出
+- **設定タブ** — Seed、Steps、CFG scale、Sampler、Model など
+
+## 対応フォーマット
+
+| フォーマット | PNG | JPEG |
 |---|---|---|
-| Automatic1111 / AUTOMATIC1111 | ✅ | ✅ |
+| Automatic1111 (A1111) | ✅ | ✅ |
 | ComfyUI | ✅ | — |
 | Fooocus | ✅ | — |
 | InvokeAI | ✅ | — |
 | StableSwarmUI | ✅ | — |
 
-## Requirements
+## 動作環境
 
-- Android 8.0 (API 26) or higher
-- Storage permission (All files access) — required to read hidden folders
+- Android 8.0 (API 26) 以上
+- ストレージ権限（すべてのファイルへのアクセス） — 隠しフォルダの読み込みに必要
 
-## Build
+## ビルド方法
 
-1. Open the project in **Android Studio** (Meerkat 2024.3 or later recommended)
+1. **Android Studio**（Meerkat 2024.3 以降推奨）でプロジェクトを開く
 2. **Build → Generate App Bundles or APKs → Build APK(s)**
-3. Install `app/build/outputs/apk/debug/app-debug.apk` on your device
+3. `app/build/outputs/apk/debug/app-debug.apk` を端末にインストール
 
-## How it works
+## 仕組み
 
-The app uses a `WebView` + `JavascriptInterface` bridge to combine a native Android file system layer with a pure JS metadata parser. PNG chunks and JPEG EXIF data are read natively and passed as Base64 to the JS layer, which parses them without any server or external dependency. Images are served to the WebView via a custom `localfile://` URL scheme intercepted by `shouldInterceptRequest`.
+`WebView` + `JavascriptInterface` ブリッジにより、Android ネイティブのファイルシステム層と純粋な JS メタデータパーサーを組み合わせています。PNG チャンクと JPEG EXIF データをネイティブ側で読み取り Base64 で JS 層に渡すことで、外部依存なしに解析を完結しています。画像は `shouldInterceptRequest` でインターセプトした独自スキーム `localfile://` 経由で WebView に提供されます。
 
-## Privacy
+## プライバシー
 
-All processing is done entirely on-device. No images or metadata are ever sent to any server.
+すべての処理は端末上でのみ行われます。画像・メタデータが外部サーバーに送信されることは一切ありません。
 
-## License
+## ライセンス
 
 MIT
