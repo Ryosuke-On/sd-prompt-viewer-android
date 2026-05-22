@@ -54,22 +54,18 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:8
 .dd-input.lora{border-color:rgba(112,192,224,.4)}.dd-input.lora:focus{border-color:var(--lora-color)}
 .dd-input.model{border-color:rgba(111,207,139,.4)}.dd-input.model:focus{border-color:var(--pos-color)}
 .dd-input:focus{outline:none}
-.dd-clear{position:absolute;right:30px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);font-size:14px;cursor:pointer;display:none;padding:2px}
-.dd-toggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:var(--surface3);border:none;color:var(--text);width:24px;height:24px;border-radius:6px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.dd-toggle:active{background:var(--accent)}
-.dd-sheet{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:600;display:none;align-items:flex-end}
-.dd-sheet.open{display:flex}
-.dd-panel{background:var(--surface);width:100%;max-height:70vh;border-radius:18px 18px 0 0;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
-.dd-panel-head{padding:14px 16px 8px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:8px}
-.dd-panel-title{font-size:14px;font-weight:600;flex:1}
-.dd-search{margin:10px 16px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-size:13px;flex-shrink:0}
-.dd-search:focus{outline:none;border-color:var(--accent)}
-.dd-list{flex:1;overflow-y:auto;padding:4px 0 10px}
-.dd-item{padding:11px 16px;font-size:13px;cursor:pointer;color:var(--text);word-break:break-all;border-bottom:1px solid var(--border)}
+.dd-clear{position:absolute;right:30px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);font-size:14px;cursor:pointer;display:none;padding:2px;z-index:2}
+.dd-toggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:var(--surface3);border:none;color:var(--text);width:24px;height:24px;border-radius:6px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
+.dd-toggle:active,.dd-toggle.active{background:var(--accent);color:#fff}
+.dd-pop{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;z-index:50;max-height:55vh;display:none;flex-direction:column;box-shadow:0 10px 28px rgba(0,0,0,.55)}
+.dd-pop.open{display:flex}
+.dd-list{flex:1;overflow-y:auto;padding:4px 0;overscroll-behavior:contain}
+.dd-item{padding:10px 12px;font-size:13px;cursor:pointer;color:var(--text);word-break:break-all;border-bottom:1px solid rgba(255,255,255,.04)}
+.dd-item:last-child{border-bottom:none}
 .dd-item:active{background:var(--surface2)}
 .dd-item.selected{background:var(--surface2);color:var(--accent);font-weight:600}
 .dd-item.clear-opt{color:var(--text2);font-style:italic}
-.dd-empty{padding:30px;text-align:center;color:var(--text2);font-size:13px}
+.dd-empty{padding:18px;text-align:center;color:var(--text2);font-size:12px}
 .progress-wrap{height:3px;background:var(--surface2);display:none}
 .progress-wrap.show{display:block}
 .progress-bar{height:100%;background:var(--accent);width:0%;transition:width .1s}
@@ -281,7 +277,8 @@ mark.diff-u{background:rgba(139,111,212,.3);color:#c5a8ff;border-radius:3px;padd
     <div class="dd-wrap">
       <input type="text" class="dd-input lora" id="lora-input" placeholder="LoRA名で絞り込み">
       <button class="dd-clear" id="lora-clear" onclick="clearLoraFilter()">×</button>
-      <button class="dd-toggle" onclick="openDropdown('lora')" title="一覧">▼</button>
+      <button class="dd-toggle" id="lora-toggle" onclick="toggleDropdown('lora')" title="一覧">▼</button>
+      <div class="dd-pop" id="dd-pop-lora"><div class="dd-list" id="dd-list-lora"></div></div>
     </div>
   </div>
   <div class="filter-row">
@@ -289,7 +286,8 @@ mark.diff-u{background:rgba(139,111,212,.3);color:#c5a8ff;border-radius:3px;padd
     <div class="dd-wrap">
       <input type="text" class="dd-input model" id="model-input" placeholder="モデル名で絞り込み">
       <button class="dd-clear" id="model-clear" onclick="clearModelFilter()">×</button>
-      <button class="dd-toggle" onclick="openDropdown('model')" title="一覧">▼</button>
+      <button class="dd-toggle" id="model-toggle" onclick="toggleDropdown('model')" title="一覧">▼</button>
+      <div class="dd-pop" id="dd-pop-model"><div class="dd-list" id="dd-list-model"></div></div>
     </div>
   </div>
 </header>
@@ -369,17 +367,6 @@ mark.diff-u{background:rgba(139,111,212,.3);color:#c5a8ff;border-radius:3px;padd
   <div class="iv-content" id="iv-content"></div>
 </div>
 
-<!-- Custom dropdown sheet -->
-<div class="dd-sheet" id="dd-sheet" onclick="onDdSheetClick(event)">
-  <div class="dd-panel">
-    <div class="dd-panel-head">
-      <span class="dd-panel-title" id="dd-title">選択</span>
-      <button class="btn-close" onclick="closeDropdown()">×</button>
-    </div>
-    <input type="search" class="dd-search" id="dd-search" placeholder="検索">
-    <div class="dd-list" id="dd-list"></div>
-  </div>
-</div>
 
 <!-- Compare -->
 <div class="cmp-overlay" id="cmp-overlay">
@@ -702,15 +689,17 @@ document.getElementById('search-input').addEventListener('input',e=>{
   document.getElementById('search-clear').style.display=promptQuery?'block':'none';
   clearTimeout(searchTimer);searchTimer=setTimeout(()=>rebuildVisibleList(),200);
 });
-document.getElementById('lora-input').addEventListener('input',e=>{
-  loraQuery=e.target.value.trim();
-  document.getElementById('lora-clear').style.display=loraQuery?'block':'none';
-  clearTimeout(searchTimer);searchTimer=setTimeout(()=>rebuildVisibleList(),200);
-});
-document.getElementById('model-input').addEventListener('input',e=>{
-  modelQuery=e.target.value.trim();
-  document.getElementById('model-clear').style.display=modelQuery?'block':'none';
-  clearTimeout(searchTimer);searchTimer=setTimeout(()=>rebuildVisibleList(),200);
+['lora','model'].forEach(kind=>{
+  const inp=document.getElementById(kind+'-input');
+  inp.addEventListener('input',e=>{
+    const v=e.target.value.trim();
+    if(kind==='lora'){loraQuery=v;document.getElementById('lora-clear').style.display=v?'block':'none';}
+    else{modelQuery=v;document.getElementById('model-clear').style.display=v?'block':'none';}
+    if(_ddKind!==kind)openDropdown(kind);
+    else renderDdList(kind,e.target.value);
+    clearTimeout(searchTimer);searchTimer=setTimeout(()=>rebuildVisibleList(),200);
+  });
+  inp.addEventListener('focus',()=>{if(_ddKind!==kind)openDropdown(kind);});
 });
 
 function clearSearch(){document.getElementById('search-input').value='';document.getElementById('search-clear').style.display='none';promptQuery='';rebuildVisibleList();}
@@ -745,47 +734,53 @@ function updateModelDatalist(){
   _modelOptions.sort((a,b)=>a.localeCompare(b,'ja'));
 }
 
-// ─── Custom dropdown ───
+// ─── Custom dropdown (inline popover) ───
 let _ddKind=null;
+function toggleDropdown(kind){
+  if(_ddKind===kind){closeDropdown();return;}
+  openDropdown(kind);
+}
 function openDropdown(kind){
+  closeDropdown();
   _ddKind=kind;
+  const inputVal=document.getElementById(kind+'-input').value;
+  renderDdList(kind,inputVal);
+  document.getElementById('dd-pop-'+kind).classList.add('open');
+  document.getElementById(kind+'-toggle').classList.add('active');
+}
+function renderDdList(kind,filter){
   const opts=kind==='lora'?_loraOptions:_modelOptions;
   const current=(kind==='lora'?loraQuery:modelQuery).toLowerCase();
-  document.getElementById('dd-title').textContent=kind==='lora'?'LoRA を選択':'モデルを選択';
-  const search=document.getElementById('dd-search');search.value='';
-  renderDdList(opts,'',current);
-  search.oninput=()=>renderDdList(opts,search.value,current);
-  document.getElementById('dd-sheet').classList.add('open');
-}
-function renderDdList(opts,filter,current){
-  const list=document.getElementById('dd-list');list.innerHTML='';
-  const f=filter.toLowerCase();
-  const clr=document.createElement('div');clr.className='dd-item clear-opt';clr.textContent='（絞り込みをクリア）';
-  clr.onclick=()=>{selectDdItem('');};
-  list.appendChild(clr);
+  const list=document.getElementById('dd-list-'+kind);list.innerHTML='';
+  const f=(filter||'').toLowerCase();
+  if(current){
+    const clr=document.createElement('div');clr.className='dd-item clear-opt';clr.textContent='（絞り込みをクリア）';
+    clr.onclick=()=>selectDdItem(kind,'');
+    list.appendChild(clr);
+  }
   const matched=opts.filter(o=>!f||o.toLowerCase().includes(f));
   if(!matched.length){const e=document.createElement('div');e.className='dd-empty';e.textContent=opts.length?'一致する項目なし':'候補がありません';list.appendChild(e);return;}
   for(const o of matched){
     const it=document.createElement('div');it.className='dd-item'+(o.toLowerCase()===current?' selected':'');
-    it.textContent=o;it.onclick=()=>selectDdItem(o);
+    it.textContent=o;it.onclick=()=>selectDdItem(kind,o);
     list.appendChild(it);
   }
 }
-function selectDdItem(val){
-  if(_ddKind==='lora'){
-    document.getElementById('lora-input').value=val;
-    loraQuery=val;document.getElementById('lora-clear').style.display=val?'block':'none';
-  }else{
-    document.getElementById('model-input').value=val;
-    modelQuery=val;document.getElementById('model-clear').style.display=val?'block':'none';
-  }
+function selectDdItem(kind,val){
+  const inp=document.getElementById(kind+'-input');
+  inp.value=val;
+  if(kind==='lora'){loraQuery=val;document.getElementById('lora-clear').style.display=val?'block':'none';}
+  else{modelQuery=val;document.getElementById('model-clear').style.display=val?'block':'none';}
   rebuildVisibleList();closeDropdown();
 }
 function closeDropdown(){
-  document.getElementById('dd-sheet').classList.remove('open');
+  document.querySelectorAll('.dd-pop.open').forEach(el=>el.classList.remove('open'));
+  document.querySelectorAll('.dd-toggle.active').forEach(el=>el.classList.remove('active'));
   _ddKind=null;
 }
-function onDdSheetClick(e){if(e.target===document.getElementById('dd-sheet'))closeDropdown();}
+document.addEventListener('click',e=>{
+  if(_ddKind&&!e.target.closest('.dd-wrap'))closeDropdown();
+});
 
 // ═══════════════════════════════════════════
 //  Sort
@@ -1285,7 +1280,7 @@ function showToast(msg){
 //  Back button
 // ═══════════════════════════════════════════
 window.handleAndroidBack=function(){
-  if(document.getElementById('dd-sheet').classList.contains('open')){closeDropdown();return;}
+  if(document.querySelector('.dd-pop.open')){closeDropdown();return;}
   if(document.getElementById('save-overlay').classList.contains('open')){closeSaveDialog();return;}
   if(document.getElementById('fav-overlay').classList.contains('open')){closeFavorites();return;}
   if(document.getElementById('cmp-overlay').classList.contains('open')){closeCompare();return;}
