@@ -1279,6 +1279,7 @@ function showToast(msg){
 // ═══════════════════════════════════════════
 //  Back button
 // ═══════════════════════════════════════════
+let _exitPromptAt=0;
 window.handleAndroidBack=function(){
   if(document.querySelector('.dd-pop.open')){closeDropdown();return;}
   if(document.getElementById('save-overlay').classList.contains('open')){closeSaveDialog();return;}
@@ -1289,7 +1290,15 @@ window.handleAndroidBack=function(){
     if(_ivFullscreen){toggleFullscreenImage();return;}
     closeImageView();return;
   }
-  try{window.AndroidBridge.moveToBack();}catch(e){}
+  // Top-level: require two presses to exit
+  const now=Date.now();
+  if(now-_exitPromptAt<2000){
+    _exitPromptAt=0;
+    try{window.AndroidBridge.moveToBack();}catch(e){}
+  }else{
+    _exitPromptAt=now;
+    showToast('もう一度戻るボタンでアプリを閉じます');
+  }
 };
 
 // ─── Init ───

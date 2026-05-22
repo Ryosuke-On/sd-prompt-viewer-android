@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import android.webkit.*
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -42,6 +43,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         webView = findViewById(R.id.webView)
         setupWebView()
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                webView.evaluateJavascript(
+                    "window.handleAndroidBack && window.handleAndroidBack()",
+                    null
+                )
+            }
+        })
         checkPermissionsAndLoad()
     }
 
@@ -184,10 +193,5 @@ class MainActivity : AppCompatActivity() {
         fun moveToBack() {
             runOnUiThread { moveTaskToBack(true) }
         }
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        webView.evaluateJavascript("window.handleAndroidBack && window.handleAndroidBack()", null)
     }
 }
