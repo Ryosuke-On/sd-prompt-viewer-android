@@ -179,11 +179,15 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun exists(path: String): Boolean = File(path).exists()
+
+        @JavascriptInterface
+        fun moveToBack() {
+            runOnUiThread { moveTaskToBack(true) }
+        }
     }
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack()
-        else moveTaskToBack(true)
+        webView.evaluateJavascript("window.handleAndroidBack && window.handleAndroidBack()", null)
     }
 }

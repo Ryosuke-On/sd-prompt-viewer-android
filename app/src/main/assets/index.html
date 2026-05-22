@@ -603,7 +603,6 @@ let loraQuery='';
 let modelQuery='';
 let compareMode=false;
 let compareSelected=[];
-let _backInProgress=false;
 
 // ═══════════════════════════════════════════
 //  Gallery
@@ -756,7 +755,6 @@ function openDropdown(kind){
   const search=document.getElementById('dd-search');search.value='';
   renderDdList(opts,'',current);
   search.oninput=()=>renderDdList(opts,search.value,current);
-  history.pushState({overlay:'dd'},'');
   document.getElementById('dd-sheet').classList.add('open');
 }
 function renderDdList(opts,filter,current){
@@ -786,7 +784,6 @@ function selectDdItem(val){
 function closeDropdown(){
   document.getElementById('dd-sheet').classList.remove('open');
   _ddKind=null;
-  if(!_backInProgress)history.back();
 }
 function onDdSheetClick(e){if(e.target===document.getElementById('dd-sheet'))closeDropdown();}
 
@@ -830,12 +827,10 @@ function rebuildVisibleList(){
 let dirStack=[];
 function openDirPicker(){
   const p=window.AndroidBridge.getPicturesPath();dirStack=[p];renderDirList(p);
-  history.pushState({overlay:'dir'},'');
   document.getElementById('dir-overlay').classList.add('open');
 }
 function closeDirPicker(){
   document.getElementById('dir-overlay').classList.remove('open');
-  if(!_backInProgress)history.back();
 }
 function dirUp(){if(dirStack.length<=1)return;dirStack.pop();renderDirList(dirStack[dirStack.length-1]);}
 function renderDirList(path){
@@ -869,12 +864,10 @@ function updateFavBadge(){const n=loadFavs().length;const b=document.getElementB
 
 function openFavorites(){
   renderFavoritesList();
-  history.pushState({overlay:'fav'},'');
   document.getElementById('fav-overlay').classList.add('open');
 }
 function closeFavorites(){
   document.getElementById('fav-overlay').classList.remove('open');
-  if(!_backInProgress)history.back();
 }
 function renderFavoritesList(){
   const favs=loadFavs();const list=document.getElementById('fav-list');list.innerHTML='';
@@ -913,7 +906,6 @@ function promptSaveFavorite(){
   const name=images[currentIdx]?.name?.replace(/\.[^.]+$/,'')||'新しいセット';
   const input=document.getElementById('save-name-input');
   input.value=name;
-  history.pushState({overlay:'save'},'');
   document.getElementById('save-overlay').classList.add('open');
   setTimeout(()=>input.focus(),100);
 }
@@ -923,13 +915,12 @@ function confirmSaveFavorite(){
   const favs=loadFavs();
   favs.unshift({id:Date.now(),name,positive:pendingSaveData.positive||'',negative:pendingSaveData.negative||'',loras:pendingSaveData.loras||[],format:pendingSaveData.format||'',savedAt:Date.now()});
   saveFavs(favs);updateFavBadge();
-  closeSaveDialog(true);
+  closeSaveDialog();
   showToast('★ お気に入りに保存しました');
 }
-function closeSaveDialog(skipBack=false){
+function closeSaveDialog(){
   document.getElementById('save-overlay').classList.remove('open');
   pendingSaveData=null;
-  if(!_backInProgress&&!skipBack)history.back();
 }
 function onSaveOverlayClick(e){if(e.target===document.getElementById('save-overlay'))closeSaveDialog();}
 
@@ -961,7 +952,6 @@ function openImageView(idx){
   _ivFullscreen=false;_capEditing=false;
   document.getElementById('iv-overlay').classList.remove('fs');
   renderImageView();
-  history.pushState({overlay:'iv'},'');
   document.getElementById('iv-overlay').classList.add('open');
   const hint=document.getElementById('iv-hint');
   hint.classList.remove('hide');
@@ -971,7 +961,6 @@ function closeImageView(){
   if(_capEditing)saveCaptionEdit();
   _ivFullscreen=false;
   document.getElementById('iv-overlay').classList.remove('fs','open');
-  if(!_backInProgress)history.back();
 }
 function ivNavigate(dir){
   const pos=visibleList.indexOf(currentIdx);
@@ -981,16 +970,14 @@ function ivNavigate(dir){
   _ivScale=1;_ivPanX=0;_ivPanY=0;
   renderImageView();
 }
-function toggleFullscreenImage(skipHistory){
+function toggleFullscreenImage(){
   const ov=document.getElementById('iv-overlay');
   if(_ivFullscreen){
     _ivFullscreen=false;
     ov.classList.remove('fs');
-    if(!skipHistory&&!_backInProgress)history.back();
   }else{
     _ivFullscreen=true;
     ov.classList.add('fs');
-    if(!skipHistory)history.pushState({overlay:'iv-fs'},'');
     const fh=document.getElementById('iv-fs-hint');
     fh.classList.add('show');
     setTimeout(()=>fh.classList.remove('show'),1500);
@@ -1234,13 +1221,11 @@ function toggleCompareSelect(idx){
 }
 function openCompare(){
   renderCompareView(images[compareSelected[0]],images[compareSelected[1]]);
-  history.pushState({overlay:'cmp'},'');
   document.getElementById('cmp-overlay').classList.add('open');
 }
 function closeCompare(){
   document.getElementById('cmp-overlay').classList.remove('open');
   exitCompareMode();
-  if(!_backInProgress)history.back();
 }
 function swapCompare(){compareSelected.reverse();renderCompareView(images[compareSelected[0]],images[compareSelected[1]]);}
 function renderCompareView(a,b){
@@ -1299,19 +1284,18 @@ function showToast(msg){
 // ═══════════════════════════════════════════
 //  Back button
 // ═══════════════════════════════════════════
-window.addEventListener('popstate',()=>{
-  _backInProgress=true;
-  if(document.getElementById('dd-sheet').classList.contains('open'))closeDropdown();
-  else if(document.getElementById('save-overlay').classList.contains('open'))closeSaveDialog();
-  else if(document.getElementById('fav-overlay').classList.contains('open'))closeFavorites();
-  else if(document.getElementById('cmp-overlay').classList.contains('open'))closeCompare();
-  else if(document.getElementById('dir-overlay').classList.contains('open'))closeDirPicker();
-  else if(document.getElementById('iv-overlay').classList.contains('open')){
-    if(_ivFullscreen)toggleFullscreenImage(true);
-    else closeImageView();
+window.handleAndroidBack=function(){
+  if(document.getElementById('dd-sheet').classList.contains('open')){closeDropdown();return;}
+  if(document.getElementById('save-overlay').classList.contains('open')){closeSaveDialog();return;}
+  if(document.getElementById('fav-overlay').classList.contains('open')){closeFavorites();return;}
+  if(document.getElementById('cmp-overlay').classList.contains('open')){closeCompare();return;}
+  if(document.getElementById('dir-overlay').classList.contains('open')){closeDirPicker();return;}
+  if(document.getElementById('iv-overlay').classList.contains('open')){
+    if(_ivFullscreen){toggleFullscreenImage();return;}
+    closeImageView();return;
   }
-  _backInProgress=false;
-});
+  try{window.AndroidBridge.moveToBack();}catch(e){}
+};
 
 // ─── Init ───
 window.addEventListener('load',()=>{
