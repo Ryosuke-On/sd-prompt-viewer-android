@@ -466,19 +466,27 @@ function extractLoras(t){
   while((m=rx.exec(t))!==null)r.push({name:m[1],weight:m[2]});return r;
 }
 function parseA1111(raw){
+  // Normalize line endings so all logic below works uniformly
+  raw=raw.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
   const stRx=/\n(Steps|Sampler|CFG scale|Seed|Size|Model hash|Hires|ControlNet)/;
   const stM=stRx.exec(raw);const stIdx=stM?stM.index:-1;
   const body=stIdx>=0?raw.slice(0,stIdx):raw;
-  const settingsText=stIdx>=0?raw.slice(stIdx+1):'';
-  const negMark='\nNegative prompt:';const negMarkAlt='Negative prompt:';
+  let settingsText=stIdx>=0?raw.slice(stIdx+1):'';
+  // Case-insensitive, flexible negative prompt detection
+  const negRx=/\nNegative prompt\s*:\s*/i;
+  const negRxAlt=/^Negative prompt\s*:\s*/i;
   let pos='',neg='';
-  const ni=body.indexOf(negMark);
-  if(ni>=0){pos=body.slice(0,ni).trim();neg=body.slice(ni+negMark.length).trim();}
+  const nm=negRx.exec(body);
+  if(nm){pos=body.slice(0,nm.index).trim();neg=body.slice(nm.index+nm[0].length).trim();}
   else{
-    const ni2=body.indexOf(negMarkAlt);
-    if(ni2===0){neg=body.slice(negMarkAlt.length).trim();}
-    else if(ni2>0){pos=body.slice(0,ni2).trim();neg=body.slice(ni2+negMarkAlt.length).trim();}
+    const nm2=negRxAlt.exec(body);
+    if(nm2){neg=body.slice(nm2[0].length).trim();}
     else{pos=body.trim();}
+  }
+  // When settings block was not found at top level, try to find it embedded in neg
+  if(!settingsText&&neg){
+    const stM2=stRx.exec('\n'+neg);
+    if(stM2){const si=stM2.index;settingsText=neg.slice(si);neg=neg.slice(0,si).trim();}
   }
   const settings=parseKVSettings(settingsText);
   const loras=[...extractLoras(pos),...extractLoras(neg)];
@@ -503,6 +511,10 @@ function detectInstantA1111(settings,raw){
 }
 function parseComfyUI(pj){
   let pos='',neg='';const loras=[];const instantID=[];const settings={};
+  // Collect all CLIPTextEncode nodes for fallback / deduplication
+  const allClipNodes=Object.entries(pj)
+    .filter(([,n])=>/CLIPTextEncode/i.test(n.class_type||'')&&typeof n.inputs?.text==='string')
+    .map(([k,n])=>({id:k,text:n.inputs.text}));
   for(const[,nd]of Object.entries(pj)){
     const ct=nd.class_type||'';const inp=nd.inputs||{};
     if(/loraloader/i.test(ct)){
@@ -518,22 +530,33 @@ function parseComfyUI(pj){
       if(inp.denoise!==undefined)settings['Denoise']=String(inp.denoise);
       if(Array.isArray(inp.positive)){const t=resolveClipText(pj,String(inp.positive[0]));if(t)pos=t;}
       if(Array.isArray(inp.negative)){const t=resolveClipText(pj,String(inp.negative[0]));if(t)neg=t;}
+      // If both resolved to the same text, the negative probably came from a shared
+      // conditioning path — try to find a distinct CLIPTextEncode for negative
+      if(pos&&neg&&pos===neg&&allClipNodes.length>1){
+        const altNeg=allClipNodes.find(c=>c.text!==pos);
+        if(altNeg)neg=altNeg.text;
+      }
     }
     if(/^CheckpointLoader/i.test(ct)&&inp.ckpt_name)settings['Model']=inp.ckpt_name;
     if(ct==='EmptyLatentImage'&&inp.width&&inp.height)settings['Size']=`${inp.width}x${inp.height}`;
   }
+  // Fallback: no KSampler found, or resolveClipText returned nothing for both
   if(!pos&&!neg){
-    const clips=Object.entries(pj).filter(([,n])=>/CLIPTextEncode/i.test(n.class_type||'')&&typeof(n.inputs?.text)==='string').map(([,n])=>n.inputs.text);
-    if(clips[0])pos=clips[0];if(clips[1])neg=clips[1];
+    if(allClipNodes[0])pos=allClipNodes[0].text;
+    if(allClipNodes[1])neg=allClipNodes[1].text;
   }
   for(const l of extractLoras(pos+' '+neg))if(!loras.some(x=>x.name===l.name))loras.push(l);
   return{format:'ComfyUI',positive:pos,negative:neg,settings,loras,instantID};
 }
-function resolveClipText(pj,nodeId,depth=0){
-  if(depth>6)return'';const nd=pj[nodeId];if(!nd)return'';
+function resolveClipText(pj,nodeId,depth=0,visited=new Set()){
+  if(depth>8||visited.has(nodeId))return'';visited.add(nodeId);
+  const nd=pj[nodeId];if(!nd)return'';
   if(/CLIPTextEncode/i.test(nd.class_type||'')&&typeof nd.inputs?.text==='string')return nd.inputs.text;
   for(const v of Object.values(nd.inputs||{})){
-    if(Array.isArray(v)&&typeof v[0]==='string'){const t=resolveClipText(pj,v[0],depth+1);if(t)return t;}
+    // Handle both string node IDs ("6") and integer node IDs (6) in ComfyUI workflows
+    if(Array.isArray(v)&&(typeof v[0]==='string'||typeof v[0]==='number')){
+      const t=resolveClipText(pj,String(v[0]),depth+1,visited);if(t)return t;
+    }
   }
   return'';
 }
