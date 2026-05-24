@@ -2,6 +2,31 @@
 
 Stable Diffusion で生成した画像に埋め込まれたメタデータ（プロンプト・LoRA・InstantID・設定値）を閲覧できる Android アプリです。
 
+## スクリーンショット
+
+<table>
+  <tr>
+    <td align="center"><b>ギャラリー</b></td>
+    <td align="center"><b>プロンプト</b></td>
+    <td align="center"><b>LoRA & Model</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshot_gallery.png" width="180"></td>
+    <td><img src="docs/screenshot_prompt.png" width="180"></td>
+    <td><img src="docs/screenshot_lora_tab.png" width="180"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>詳細情報</b></td>
+    <td align="center"><b>LoRA フィルター</b></td>
+    <td align="center"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshot_detail.png" width="180"></td>
+    <td><img src="docs/screenshot_dropdown.png" width="180"></td>
+    <td></td>
+  </tr>
+</table>
+
 ## ダウンロード
 
 [Releases](../../releases/latest) ページから最新の `app-debug.apk` をダウンロードしてインストールできます。
